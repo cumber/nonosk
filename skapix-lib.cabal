@@ -17,10 +17,16 @@ cabal-version: >=1.10
 
 library
   exposed-modules: Skapix.Puzzle
-  -- other-modules:
+  other-modules:
   -- other-extensions:
   build-depends: base ==4.9.*
+               , constraints
+               , equational-reasoning
+               , ghc-prim
+               , ghc-typelits-knownnat
+               , ghc-typelits-natnormalise
                , lens
+               , mtl
                , singletons
                , sized
                , type-natural
