@@ -25,26 +25,34 @@
 module Skapix.Puzzle
 where
 
+import Control.Applicative (Alternative((<|>), empty))
+
 import Control.Lens ((^.))
 import qualified Control.Lens as Lens
 
 import Data.Sized.Builtin (Sized, pattern (:<))
 import qualified Data.Sized.Builtin as Sized
 
+import Data.Type.Natural.Class.Order (DiffNat(DiffNat))
 import qualified Data.Type.Natural.Class.Order as Nat
+import qualified Data.Type.Natural.Class.Arithmetic as Nat
+
+import Data.Type.Ordinal.Builtin (Ordinal)
+import qualified Data.Type.Ordinal.Builtin as Ord
 
 import Data.Singletons (SomeSing, toSing, withSomeSing)
-import Data.Singletons.Prelude ((%:-), (:<=), (%:<=), Sing(STrue, SFalse))
+import Data.Singletons.Prelude ((%:-), (%:+), (:<), (:<=))
 import Data.Singletons.TypeLits
-  ( KnownNat
-  , Nat
+  ( Nat
   , Sing(SNat)
   , SNat
   , withKnownNat
   )
+import qualified Data.Singletons.TypeLits as Sing
+import qualified Data.Singletons.Prelude as Sing
 
 import GHC.Prim (Proxy#, proxy#)
-import GHC.TypeLits (type (+), type (-), natVal')
+import GHC.TypeLits (type (+), type (-))
 
 import Numeric.Natural (Natural)
 
@@ -181,7 +189,7 @@ initPuzzle extRowHints extColHints
 
 
 infer :: forall totalHintsLen lineLen a
-       . Eq a
+       . ((totalHintsLen :<= lineLen) ~ True, Eq a)
       =>    SNat totalHintsLen
          -> SNat lineLen
          -> Hints totalHintsLen (Cell a)
@@ -193,21 +201,95 @@ infer _ sLineLen None line
       of Just Sized.NilL -> [Sized.replicate sLineLen Empty]
          Nothing -> []
 
-infer sTotalHintsLen sLineLen ((hint@(Hint _ sBlockLen@SNat) :: Hint blockLen (Cell a)) `Cons` hints) line
-  = let sRestLen = sLineLen %:- sBlockLen
-        sHintsLen = sTotalHintsLen %:- sBlockLen
-        hints' :: Hints (totalHintsLen - blockLen) (Cell a)
-        hints' = hints
-     in case sTotalHintsLen %:<= sLineLen
-          of STrue
-               -> let proof = prove sBlockLen sHintsLen sTotalHintsLen sRestLen sLineLen Proof.Refl Proof.Refl Proof.Witness
-                   in ( withWitness2 proof
-                      $ case matchHint hint line
-                          of Nothing -> []
-                             Just rest
-                               -> Sized.append (Sized.replicate (hint ^. run) (hint ^. value))
-                                    <$> infer sHintsLen sRestLen hints' rest
+infer sTotalHintsLen sLineLen (hint `Cons` (hints :: Hints restHintsLen (Cell a))) line
+  = case Nat.leqWitness sTotalHintsLen sLineLen Proof.Witness
+      of DiffNat _ sMaxSpaceLen
+           -> do  Ord.OLt sSpaceLen <- Ord.enumOrdinal $ sMaxSpaceLen %:+ (SNat @ 1)
+                  let spaceLenLeqMaxSpaceLen
+                        = lneqSuccToLeq sSpaceLen sMaxSpaceLen Proof.Witness
+
+                      maxSpaceLenLeqLineLen
+                        = Nat.leqStep sMaxSpaceLen sLineLen sTotalHintsLen
+                            Proof.Refl
+
+                      spaceLenLeqLineLen
+                        = Nat.leqTrans sSpaceLen sMaxSpaceLen sLineLen
+                            spaceLenLeqMaxSpaceLen maxSpaceLenLeqLineLen
+
+                      sRestHintsLen = SNat @ restHintsLen
+
+                      blockLenLeqTotalHintsLen
+                        = Nat.leqStep (hint ^. run) sTotalHintsLen sRestHintsLen
+                            Proof.Refl
+
+                      sLineMinusSpaceLen = sLineLen %:- sSpaceLen
+
+                      totalHintsLenLeqLineMinusSpaceLen
+                        = Proof.Witness
+
+                      blockLenLeqLineMinusSpaceLen
+                        = Nat.leqTrans (hint ^. run) sTotalHintsLen sLineMinusSpaceLen
+                            blockLenLeqTotalHintsLen totalHintsLenLeqLineMinusSpaceLen
+
+                  withMatchingHint spaceLenLeqLineLen (Hint Empty sSpaceLen) line
+                      ( \afterSpace
+                         -> withMatchingHint blockLenLeqLineMinusSpaceLen hint afterSpace
+                              ( \rest
+                                 -> _
+                              )
                       )
+
+{-
+    do  let sMaxSpaceLen = sLineLen %:- sTotalHintsLen
+        Ord.OLt sSpaceLen <- Ord.enumOrdinal (sMaxSpaceLen %:+ (SNat @ 1))
+        let spaceLenLeqMaxSpaceLen = lneqSuccToLeq sSpaceLen sMaxSpaceLen Proof.Witness
+            maxSpaceLenLeqLineLen = Nat.plusLeqL sMaxSpaceLen sTotalHintsLen
+            z = Nat.leqTrans sSpaceLen sMaxSpaceLen sLineLen spaceLenLeqMaxSpaceLen maxSpaceLenLeqLineLen
+        withWitness z $ withMatchingHint (Hint Empty sSpaceLen) line
+          ( \postSpace
+              ->  withMatchingHint hint postSpace
+                    ( \rest -> (   Sized.append (Sized.replicate sSpaceLen Empty)
+                               .   Sized.append (Sized.replicate (hint ^. run) (hint ^. value))
+                               <$> infer sHintsLen sRestLen hints rest
+                               )
+                    )
+          )
+-}
+
+
+leqToLneqSucc :: SNat n -> SNat m -> Proof.IsTrue (n :<= m)
+                   -> Proof.IsTrue (n :< m + 1)
+leqToLneqSucc n m Proof.Witness
+  = case Sing.sCompare n m
+      of Sing.SLT -> Nat.lneqSuccStepR n m Proof.Witness
+         Sing.SEQ -> Proof.withRefl (Nat.eqToRefl n m Proof.Refl)
+                      $ Nat.lneqSucc m
+
+
+lneqSuccToLeq :: SNat n -> SNat m -> Proof.IsTrue (n :< m + 1)
+                  -> Proof.IsTrue (n :<= m)
+lneqSuccToLeq n m Proof.Witness
+  = case Nat.zeroOrSucc n of
+        Nat.IsZero -> Nat.leqZero m
+        Nat.IsSucc nPred -> ( Proof.withRefl (Nat.succLneqSucc nPred m)
+                            . Proof.withRefl (Nat.lneqSuccLeq nPred m)
+                            $ Proof.Witness
+                            )
+
+
+{-
+                        of Nothing -> []
+                           Just postSpace
+                             -> case matchHint hint postSpace
+                                  of Nothing -> []
+                                     Just rest
+                                       -> ( Sized.append (Sized.replicate sSpaceLen Empty)
+                                          . Sized.append (Sized.replicate (hint ^. run) (hint ^. value))
+                                          )
+                                            <$> infer sHintsLen sRestLen hints' rest
+        )
+-}
+
 
 withWitness2 :: (Proof.IsTrue a, Proof.IsTrue b) -> ((a ~ True, b ~ True) => r) -> r
 withWitness2 (a, b) = Proof.withWitness a . Proof.withWitness b
@@ -240,8 +322,24 @@ matchHint hint line
           else  Just rest
 
 
-natVal :: forall n. KnownNat n => Natural
-natVal = fromInteger $ natVal' (proxy# :: Proxy# n)
+withMatchingHint :: forall hintLen lineLen f a b
+                  . ( Alternative f
+                    , Eq a
+                    )
+                 => Proof.IsTrue (hintLen :<= lineLen)
+                    -> Hint hintLen (Cell a)
+                    -> LineKnowledge lineLen a
+                    -> (LineKnowledge (lineLen - hintLen) a -> f b)
+                    -> f b
+withMatchingHint Proof.Witness hint line matchCont
+  = let (block, rest) = Sized.splitAt (hint ^. run) line
+     in if any (can'tMatch (hint ^. value)) block
+          then  empty
+          else  matchCont rest
+
+
+natVal :: SNat n -> Natural
+natVal n@SNat = fromInteger $ Sing.natVal n
 
 
 natSing :: Natural -> SomeSing Nat
