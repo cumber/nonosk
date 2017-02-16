@@ -51,7 +51,6 @@ import Data.Singletons.TypeLits
 import qualified Data.Singletons.TypeLits as Sing
 import qualified Data.Singletons.Prelude as Sing
 
-import GHC.Prim (Proxy#, proxy#)
 import GHC.TypeLits (type (+), type (-))
 
 import Numeric.Natural (Natural)
@@ -205,12 +204,12 @@ infer sTotalHintsLen sLineLen (hint `Cons` (hints :: Hints restHintsLen (Cell a)
   = case Nat.leqWitness sTotalHintsLen sLineLen Proof.Witness
       of DiffNat _ sMaxSpaceLen
            -> do  Ord.OLt sSpaceLen <- Ord.enumOrdinal $ sMaxSpaceLen %:+ (SNat @ 1)
-                  let spaceLenLeqMaxSpaceLen
-                        = lneqSuccToLeq sSpaceLen sMaxSpaceLen Proof.Witness
-
-                      maxSpaceLenLeqLineLen
+                  let maxSpaceLenLeqLineLen
                         = Nat.leqStep sMaxSpaceLen sLineLen sTotalHintsLen
                             Proof.Refl
+
+                      spaceLenLeqMaxSpaceLen
+                         = lneqSuccToLeq sSpaceLen sMaxSpaceLen Proof.Witness
 
                       spaceLenLeqLineLen
                         = Nat.leqTrans sSpaceLen sMaxSpaceLen sLineLen
@@ -218,14 +217,27 @@ infer sTotalHintsLen sLineLen (hint `Cons` (hints :: Hints restHintsLen (Cell a)
 
                       sRestHintsLen = SNat @ restHintsLen
 
+                      sCommittedLen = sTotalHintsLen %:+ sSpaceLen
+
+                      sRemainingSpaceLen = sLineLen %:- sCommittedLen
+
                       blockLenLeqTotalHintsLen
                         = Nat.leqStep (hint ^. run) sTotalHintsLen sRestHintsLen
                             Proof.Refl
 
                       sLineMinusSpaceLen = sLineLen %:- sSpaceLen
 
+                      {-
+                      totalHintsLen + maxSpaceLen = lineLen
+                      spaceLen + sLineMinusSpaceLen = lineLen
+                      spaceLen <= maxSpaceLen
+                      totalHintsLen + spaceLen + remainingSpaceLen = lineLen
+                      totalHintsLen + remainingSpaceLen = lineLen - spaceLen
+                      ∵ totalHintsLen <= lineLen - spaceLen
+                      -}
+
                       totalHintsLenLeqLineMinusSpaceLen
-                        = Proof.Witness
+                        = Nat.leqStep sTotalHintsLen sLineMinusSpaceLen sRemainingSpaceLen Proof.Refl
 
                       blockLenLeqLineMinusSpaceLen
                         = Nat.leqTrans (hint ^. run) sTotalHintsLen sLineMinusSpaceLen
