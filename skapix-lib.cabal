@@ -17,7 +17,7 @@ cabal-version: >=1.10
 
 library
   exposed-modules: Skapix.Puzzle
-  other-modules:
+  other-modules: Data.Singletons.TypeLits.Show
   -- other-extensions:
   build-depends: base ==4.9.*
                , constraints

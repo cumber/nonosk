@@ -30,6 +30,8 @@ import Control.Applicative (Alternative((<|>), empty))
 import Control.Lens ((^.))
 import qualified Control.Lens as Lens
 
+import Data.Singletons.TypeLits.Show ()
+
 import Data.Sized.Builtin (Sized, pattern (:<))
 import qualified Data.Sized.Builtin as Sized
 
@@ -62,7 +64,7 @@ import qualified Proof.Propositional as Proof
 
 -- | A Hint identifies a run of cells filled with a constant value.
 data Hint n a = Hint { _value :: !a, _run :: !(SNat n) }
-  deriving (Functor)
+  deriving (Show, Functor)
 Lens.makeLenses ''Hint
 
 
@@ -74,6 +76,7 @@ data Hints n a
                 )
 infixr 5 `Cons`
 deriving instance Functor (Hints n)
+deriving instance Show a => Show (Hints n a)
 
 
 -- | A Cell can be empty or filled with a particular value.
