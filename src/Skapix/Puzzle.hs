@@ -30,6 +30,8 @@ import Control.Applicative (Alternative((<|>), empty))
 import Control.Lens ((^.))
 import qualified Control.Lens as Lens
 
+import Data.Semigroup ((<>))
+
 import Data.Singletons.TypeLits.Show ()
 
 import Data.Sized.Builtin (Sized, pattern (:<))
@@ -190,9 +192,12 @@ initPuzzle extRowHints extColHints
 -}
 
 
-infer :: forall totalHintsLen lineLen a
-       . ((totalHintsLen :<= lineLen) ~ True, Eq a)
-      =>    SNat totalHintsLen
+infer :: forall totalHintsLen totalSpaceLen lineLen a
+       . ( (totalHintsLen + totalSpaceLen) ~ lineLen
+         , Sing.KnownNat totalHintsLen
+         , Eq a
+         )
+      =>    SNat totalSpaceLen
          -> SNat lineLen
          -> Hints totalHintsLen (Cell a)
          -> LineKnowledge lineLen a
@@ -203,10 +208,53 @@ infer _ sLineLen None line
       of Just Sized.NilL -> [Sized.replicate sLineLen Empty]
          Nothing -> []
 
-infer sTotalHintsLen sLineLen (hint `Cons` (hints :: Hints restHintsLen (Cell a))) line
+infer sTotalSpaceLen sLineLen hints line
+  = case hints
+      of None
+           -> case matchHint (Hint Empty sLineLen) line  :: Maybe (LineKnowledge 0 a)
+                of Just _   -> [Sized.replicate sLineLen Empty]
+                   Nothing  -> []
+
+         hint `Cons` remainingHints
+           -> do  LLD sHintLen sRemainingHintsLen sSpaceLen sRemainingSpaceLen _ <- allDivisions hint remainingHints sTotalSpaceLen sLineLen
+                  let hintLenLeqLineLen = Nat.leqStep sHintLen sLineLen (sRemainingHintsLen %:+ sSpaceLen %:+ sRemainingSpaceLen) Proof.Refl
+                  withMatchingHint hintLenLeqLineLen hint line
+                    $ _
+
+data LineLengthDivision n
+  where LLD :: (hintLen + remainingHintsLen + spaceLen + remainingSpaceLen) ~ lineLen
+            => SNat hintLen
+            -> SNat remainingHintsLen
+            -> SNat spaceLen
+            -> SNat remainingSpaceLen
+            -> SNat lineLen
+            -> LineLengthDivision lineLen
+
+deriving instance Show (LineLengthDivision n)
+
+allDivisions :: forall hintLen remainingHintsLen totalSpaceLen lineLen a
+              . ( Sing.KnownNat (hintLen + remainingHintsLen)
+                , (hintLen + remainingHintsLen + totalSpaceLen) ~ lineLen
+                )
+             => Hint hintLen a
+             -> Hints remainingHintsLen a
+             -> SNat totalSpaceLen
+             -> SNat lineLen
+             -> [LineLengthDivision lineLen]
+allDivisions hint _ sTotalSpaceLen sLineLen
+  = case (hint ^. run)
+      of SNat -> [ LLD (hint ^. run) (SNat @ remainingHintsLen) sSpaceLen sRemainingSpaceLen sLineLen
+                 | Ord.OLt sSpaceLen <- Ord.enumOrdinal (sTotalSpaceLen %:+ SNat @ 1)
+                 , let sRemainingSpaceLen = sTotalSpaceLen %:- sSpaceLen
+                 ]
+
+
+type OrdinalInclusive n = Ordinal (n + 1)
+
+{-
   = case Nat.leqWitness sTotalHintsLen sLineLen Proof.Witness
       of DiffNat _ sMaxSpaceLen
-           -> do  Ord.OLt sSpaceLen <- Ord.enumOrdinal $ sMaxSpaceLen %:+ (SNat @ 1)
+           -> do  Ord.OLt (sSpaceLen :: SNat spaceLen) <- Ord.enumOrdinal $ sMaxSpaceLen %:+ (SNat @ 1)
                   let maxSpaceLenLeqLineLen
                         = Nat.leqStep sMaxSpaceLen sLineLen sTotalHintsLen
                             Proof.Refl
@@ -239,6 +287,7 @@ infer sTotalHintsLen sLineLen (hint `Cons` (hints :: Hints restHintsLen (Cell a)
                       ∵ totalHintsLen <= lineLen - spaceLen
                       -}
 
+                      totalHintsLenLeqLineMinusSpaceLen :: Proof.IsTrue (totalHintsLen :<= (lineLen - spaceLen))
                       totalHintsLenLeqLineMinusSpaceLen
                         = Nat.leqStep sTotalHintsLen sLineMinusSpaceLen sRemainingSpaceLen Proof.Refl
 
@@ -253,6 +302,7 @@ infer sTotalHintsLen sLineLen (hint `Cons` (hints :: Hints restHintsLen (Cell a)
                                  -> _
                               )
                       )
+-}
 
 {-
     do  let sMaxSpaceLen = sLineLen %:- sTotalHintsLen
