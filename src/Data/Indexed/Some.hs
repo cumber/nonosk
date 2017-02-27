@@ -6,6 +6,7 @@
            , TypeOperators
            , TypeInType
   #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 
 module Data.Indexed.Some
   ( Some (..)
@@ -14,16 +15,18 @@ module Data.Indexed.Some
   )
 where
 
-import GHC.TypeLits (type (+))
+import GHC.TypeLits ( KnownNat
+                    , type (+)
+                    )
 
-import Data.Singletons.TypeLits (Nat)
+import Data.Singletons.TypeLits ( Nat )
 
 
 data Some f a
-  where Some :: f (n :: Nat) a -> Some f a
+  where Some :: KnownNat n => f (n :: Nat) a -> Some f a
 
 
-withSome :: (forall n. f n a -> r) -> Some f a -> r
+withSome :: (forall n. KnownNat n => f n a -> r) -> Some f a -> r
 withSome f (Some x) = f x
 
 liftPlus :: (forall n m. f n a -> g m b -> h (n + m) c)
