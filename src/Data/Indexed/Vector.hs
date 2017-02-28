@@ -24,6 +24,7 @@ module Data.Indexed.Vector
   , append
   , isZero
   , length
+  , splitAt
   , splitAt'
   , switchZero
   , replicate
@@ -33,6 +34,7 @@ where
 
 import Prelude hiding ( length
                       , replicate
+                      , splitAt
                       , zipWith
                       )
 
@@ -163,6 +165,9 @@ splitAt' xs
                         \but then also tells me the Nil can't be matched"
       )
 
+splitAt :: forall s n a. (s <= n)
+        => SNat s -> Vector n a -> (Vector s a, Vector (n - s) a)
+splitAt SNat = replicate'
 
 data IsZero n
   where Zero :: (0 ~ n) => IsZero n

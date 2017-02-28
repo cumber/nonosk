@@ -16,7 +16,7 @@ build-type: Simple
 cabal-version: >=1.10
 
 library
-  exposed-modules:
+  exposed-modules: Skapix.Puzzle
                    Data.Indexed.Some
                    Data.Indexed.Vector
                    Data.Indexed.Vector.QQ

@@ -34,16 +34,6 @@ import Data.Semigroup ((<>))
 
 import Data.Singletons.TypeLits.Show ()
 
-import Data.Sized.Builtin (Sized, pattern (:<))
-import qualified Data.Sized.Builtin as Sized
-
-import Data.Type.Natural.Class.Order (DiffNat(DiffNat))
-import qualified Data.Type.Natural.Class.Order as Nat
-import qualified Data.Type.Natural.Class.Arithmetic as Nat
-
-import Data.Type.Ordinal.Builtin (Ordinal)
-import qualified Data.Type.Ordinal.Builtin as Ord
-
 import Data.Singletons (SomeSing, toSing, withSomeSing)
 import Data.Singletons.Prelude ((%:-), (%:+), (:<), (:<=))
 import Data.Singletons.TypeLits
@@ -62,6 +52,11 @@ import Numeric.Natural (Natural)
 import Proof.Equational ((:~:))
 import qualified Proof.Equational as Proof
 import qualified Proof.Propositional as Proof
+
+import Data.Indexed.Vector ( Vector ((:^), Nil) )
+import qualified Data.Indexed.Vector as Vector
+
+import Data.Indexed.Some
 
 
 -- | A Hint identifies a run of cells filled with a constant value.
@@ -120,31 +115,28 @@ maybeKnowledge = Lens.iso forward backward
         backward = withKnowledge Nothing Just
 
 
--- | A List is a 'Sized' wrapper around ordinary lists
-type List n a = Sized [] n a
+-- | A Line is a 'Vector' of 'Cell's
+type Line n a = Vector n (Cell a)
 
--- | A Line is a 'List' of 'Cell's
-type Line n a = List n (Cell a)
+-- | A LineKnowledge is a 'Vector' of 'Knowledge' 'Cell's
+type LineKnowledge n a = Vector n (Knowledge (Cell a))
 
--- | A LineKnowledge is a 'List' of 'Knowledge' 'Cell's
-type LineKnowledge n a = List n (Knowledge (Cell a))
+-- | A Line' is a 'Vector' of 'Cell''s
+type Line' n = Vector n Cell'
 
--- | A Line' is a 'List' of 'Cell''s
-type Line' n = List n Cell'
-
--- | A @LineKnowledge' is a 'List' of @'Knowledge' 'Cell''@s
-type LineKnowledge' n = List n (Knowledge Cell')
+-- | A @LineKnowledge' is a 'Vector' of @'Knowledge' 'Cell''@s
+type LineKnowledge' n = Vector n (Knowledge Cell')
 
 
 newtype Grid (r :: Nat) (c :: Nat) (a :: *)
-  = Grid { unGrid :: List r (List c a) }
+  = Grid { unGrid :: Vector r (Vector c a) }
   deriving (Eq, Functor, Show)
 
 
 data Puzzle :: (* -> *) -> * -> *
   where Puzzle     :: { grid :: Grid (r :: Nat) (c :: Nat) (f a)
-                      --, rowHints :: List r (Hint broken (Cell a))
-                      --, colHints :: List c (Hint broken (Cell a))
+                      --, rowHints :: Vector r (Hint broken (Cell a))
+                      --, colHints :: Vector c (Hint broken (Cell a))
                       } -> Puzzle f a
 
 deriving instance Functor f => Functor (Puzzle f)
@@ -163,19 +155,19 @@ data Puzzle' f broken a
 
 
 toRawLists :: Grid r c a -> [[a]]
-toRawLists = Sized.toList . Sized.map Sized.toList . unGrid
+toRawLists = toList . fmap toList . unGrid
 
 
 constGrid :: SNat r -> SNat c -> a -> Grid r c a
-constGrid r c = Grid . Sized.replicate r . Sized.replicate c
+constGrid r c = Grid . Vector.replicate r . Vector.replicate c
 
 
 {-
 dropSize :: Puzzle f a -> Puzzle' f a
 dropSize (Puzzle { grid = g, rowHints = rhs, colHints = chs })
   = Puzzle' { grid' = toRawLists g
-            , rowHints' = Sized.toList rhs
-            , colHints' = Sized.toList chs
+            , rowHints' = toList rhs
+            , colHints' = toList chs
             }
 
 
@@ -192,182 +184,26 @@ initPuzzle extRowHints extColHints
 -}
 
 
-infer :: forall totalHintsLen totalSpaceLen lineLen a
-       . ( (totalHintsLen + totalSpaceLen) ~ lineLen
-         , Sing.KnownNat totalHintsLen
+infer :: forall totalHintsLen lineLen a
+       . ( Sing.KnownNat totalHintsLen
+         , Sing.KnownNat lineLen
          , Eq a
          )
-      =>    SNat totalSpaceLen
-         -> SNat lineLen
-         -> Hints totalHintsLen (Cell a)
+      =>    Hints totalHintsLen (Cell a)
          -> LineKnowledge lineLen a
          -> [Line lineLen a]
 
-infer _ sLineLen None line
-  = case matchHint (Hint Empty sLineLen) line
-      of Just Sized.NilL -> [Sized.replicate sLineLen Empty]
-         Nothing -> []
+infer None line
+  = maybe [] (\Nil -> [Vector.replicate' Empty])
+      (matchHint (Hint Empty (SNat @ lineLen)) line)
 
-infer sTotalSpaceLen sLineLen hints line
-  = case hints
-      of None
-           -> case matchHint (Hint Empty sLineLen) line  :: Maybe (LineKnowledge 0 a)
-                of Just _   -> [Sized.replicate sLineLen Empty]
-                   Nothing  -> []
-
-         hint `Cons` remainingHints
-           -> do  LLD sHintLen sRemainingHintsLen sSpaceLen sRemainingSpaceLen _ <- allDivisions hint remainingHints sTotalSpaceLen sLineLen
-                  let hintLenLeqLineLen = Nat.leqStep sHintLen sLineLen (sRemainingHintsLen %:+ sSpaceLen %:+ sRemainingSpaceLen) Proof.Refl
-                  withMatchingHint hintLenLeqLineLen hint line
-                    $ _
-
-data LineLengthDivision n
-  where LLD :: (hintLen + remainingHintsLen + spaceLen + remainingSpaceLen) ~ lineLen
-            => SNat hintLen
-            -> SNat remainingHintsLen
-            -> SNat spaceLen
-            -> SNat remainingSpaceLen
-            -> SNat lineLen
-            -> LineLengthDivision lineLen
-
-deriving instance Show (LineLengthDivision n)
-
-allDivisions :: forall hintLen remainingHintsLen totalSpaceLen lineLen a
-              . ( Sing.KnownNat (hintLen + remainingHintsLen)
-                , (hintLen + remainingHintsLen + totalSpaceLen) ~ lineLen
-                )
-             => Hint hintLen a
-             -> Hints remainingHintsLen a
-             -> SNat totalSpaceLen
-             -> SNat lineLen
-             -> [LineLengthDivision lineLen]
-allDivisions hint _ sTotalSpaceLen sLineLen
-  = case (hint ^. run)
-      of SNat -> [ LLD (hint ^. run) (SNat @ remainingHintsLen) sSpaceLen sRemainingSpaceLen sLineLen
-                 | Ord.OLt sSpaceLen <- Ord.enumOrdinal (sTotalSpaceLen %:+ SNat @ 1)
-                 , let sRemainingSpaceLen = sTotalSpaceLen %:- sSpaceLen
-                 ]
-
-
-type OrdinalInclusive n = Ordinal (n + 1)
-
-{-
-  = case Nat.leqWitness sTotalHintsLen sLineLen Proof.Witness
-      of DiffNat _ sMaxSpaceLen
-           -> do  Ord.OLt (sSpaceLen :: SNat spaceLen) <- Ord.enumOrdinal $ sMaxSpaceLen %:+ (SNat @ 1)
-                  let maxSpaceLenLeqLineLen
-                        = Nat.leqStep sMaxSpaceLen sLineLen sTotalHintsLen
-                            Proof.Refl
-
-                      spaceLenLeqMaxSpaceLen
-                         = lneqSuccToLeq sSpaceLen sMaxSpaceLen Proof.Witness
-
-                      spaceLenLeqLineLen
-                        = Nat.leqTrans sSpaceLen sMaxSpaceLen sLineLen
-                            spaceLenLeqMaxSpaceLen maxSpaceLenLeqLineLen
-
-                      sRestHintsLen = SNat @ restHintsLen
-
-                      sCommittedLen = sTotalHintsLen %:+ sSpaceLen
-
-                      sRemainingSpaceLen = sLineLen %:- sCommittedLen
-
-                      blockLenLeqTotalHintsLen
-                        = Nat.leqStep (hint ^. run) sTotalHintsLen sRestHintsLen
-                            Proof.Refl
-
-                      sLineMinusSpaceLen = sLineLen %:- sSpaceLen
-
-                      {-
-                      totalHintsLen + maxSpaceLen = lineLen
-                      spaceLen + sLineMinusSpaceLen = lineLen
-                      spaceLen <= maxSpaceLen
-                      totalHintsLen + spaceLen + remainingSpaceLen = lineLen
-                      totalHintsLen + remainingSpaceLen = lineLen - spaceLen
-                      ∵ totalHintsLen <= lineLen - spaceLen
-                      -}
-
-                      totalHintsLenLeqLineMinusSpaceLen :: Proof.IsTrue (totalHintsLen :<= (lineLen - spaceLen))
-                      totalHintsLenLeqLineMinusSpaceLen
-                        = Nat.leqStep sTotalHintsLen sLineMinusSpaceLen sRemainingSpaceLen Proof.Refl
-
-                      blockLenLeqLineMinusSpaceLen
-                        = Nat.leqTrans (hint ^. run) sTotalHintsLen sLineMinusSpaceLen
-                            blockLenLeqTotalHintsLen totalHintsLenLeqLineMinusSpaceLen
-
-                  withMatchingHint spaceLenLeqLineLen (Hint Empty sSpaceLen) line
-                      ( \afterSpace
-                         -> withMatchingHint blockLenLeqLineMinusSpaceLen hint afterSpace
-                              ( \rest
-                                 -> _
-                              )
-                      )
--}
-
-{-
-    do  let sMaxSpaceLen = sLineLen %:- sTotalHintsLen
-        Ord.OLt sSpaceLen <- Ord.enumOrdinal (sMaxSpaceLen %:+ (SNat @ 1))
-        let spaceLenLeqMaxSpaceLen = lneqSuccToLeq sSpaceLen sMaxSpaceLen Proof.Witness
-            maxSpaceLenLeqLineLen = Nat.plusLeqL sMaxSpaceLen sTotalHintsLen
-            z = Nat.leqTrans sSpaceLen sMaxSpaceLen sLineLen spaceLenLeqMaxSpaceLen maxSpaceLenLeqLineLen
-        withWitness z $ withMatchingHint (Hint Empty sSpaceLen) line
-          ( \postSpace
-              ->  withMatchingHint hint postSpace
-                    ( \rest -> (   Sized.append (Sized.replicate sSpaceLen Empty)
-                               .   Sized.append (Sized.replicate (hint ^. run) (hint ^. value))
-                               <$> infer sHintsLen sRestLen hints rest
-                               )
-                    )
-          )
--}
-
-
-leqToLneqSucc :: SNat n -> SNat m -> Proof.IsTrue (n :<= m)
-                   -> Proof.IsTrue (n :< m + 1)
-leqToLneqSucc n m Proof.Witness
-  = case Sing.sCompare n m
-      of Sing.SLT -> Nat.lneqSuccStepR n m Proof.Witness
-         Sing.SEQ -> Proof.withRefl (Nat.eqToRefl n m Proof.Refl)
-                      $ Nat.lneqSucc m
-
-
-lneqSuccToLeq :: SNat n -> SNat m -> Proof.IsTrue (n :< m + 1)
-                  -> Proof.IsTrue (n :<= m)
-lneqSuccToLeq n m Proof.Witness
-  = case Nat.zeroOrSucc n of
-        Nat.IsZero -> Nat.leqZero m
-        Nat.IsSucc nPred -> ( Proof.withRefl (Nat.succLneqSucc nPred m)
-                            . Proof.withRefl (Nat.lneqSuccLeq nPred m)
-                            $ Proof.Witness
-                            )
-
-
-{-
-                        of Nothing -> []
-                           Just postSpace
-                             -> case matchHint hint postSpace
-                                  of Nothing -> []
-                                     Just rest
-                                       -> ( Sized.append (Sized.replicate sSpaceLen Empty)
-                                          . Sized.append (Sized.replicate (hint ^. run) (hint ^. value))
-                                          )
-                                            <$> infer sHintsLen sRestLen hints' rest
-        )
--}
+infer (hint `Cons` hints) line
+  = withMatchingHint _ hint line (\rest -> (Vector.append $ Vector.replicate' (hint ^. value)) <$> infer hints rest)
 
 
 withWitness2 :: (Proof.IsTrue a, Proof.IsTrue b) -> ((a ~ True, b ~ True) => r) -> r
 withWitness2 (a, b) = Proof.withWitness a . Proof.withWitness b
 
-prove
-  :: SNat a -> SNat b -> SNat c -> SNat d -> SNat e
-      -> (a + b :~: c) -> (a + d :~: e) -> Proof.IsTrue (c :<= e)
-      -> (Proof.IsTrue (a :<= e), Proof.IsTrue (b :<= d))
-prove a b _ d _ Proof.Refl Proof.Refl Proof.Witness
-  = Proof.withWitness (Nat.plusLeqL a d)
-      ( Proof.withWitness (Nat.plusCancelLeqL a b d Proof.Witness)
-        (Proof.Witness, Proof.Witness)
-      )
 
 can'tMatch :: Eq a => a -> Knowledge a -> Bool
 can'tMatch x = withKnowledge False (/= x)
@@ -381,7 +217,7 @@ matchHint :: forall l n a
              -> LineKnowledge n a
              -> Maybe (LineKnowledge (n - l) a)
 matchHint hint line
-  = let (block, rest) = Sized.splitAt (hint ^. run) line
+  = let (block, rest) = Vector.splitAt (hint ^. run) line
     in  if any (can'tMatch (hint ^. value)) block
           then  Nothing
           else  Just rest
@@ -397,7 +233,7 @@ withMatchingHint :: forall hintLen lineLen f a b
                     -> (LineKnowledge (lineLen - hintLen) a -> f b)
                     -> f b
 withMatchingHint Proof.Witness hint line matchCont
-  = let (block, rest) = Sized.splitAt (hint ^. run) line
+  = let (block, rest) = Vector.splitAt (hint ^. run) line
      in if any (can'tMatch (hint ^. value)) block
           then  empty
           else  matchCont rest
