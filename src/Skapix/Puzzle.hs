@@ -26,41 +26,36 @@
 module Skapix.Puzzle
 where
 
-import Control.Applicative (Alternative((<|>), empty))
+import Control.Applicative (Alternative(empty))
 
 import Control.Lens ((^.))
 import qualified Control.Lens as Lens
 
-import Data.Constraint
-import Data.Constraint.Nat
+import Data.Constraint ( (:-) (Sub)
+                       , Dict (Dict)
+                       , (\\)
+                       )
 
-import Data.Semigroup ((<>))
+import Data.Foldable (toList)
 
 import Data.Singletons.TypeLits.Show ()
 
 import Data.Singletons (SomeSing, toSing, withSomeSing)
-import Data.Singletons.Prelude ((%:-), (%:+), (:<), (:<=))
 import Data.Singletons.TypeLits
-  ( Nat
+  ( KnownNat
+  , Nat
   , Sing(SNat)
   , SNat
   , withKnownNat
   )
 import qualified Data.Singletons.TypeLits as Sing
-import qualified Data.Singletons.Prelude as Sing
 
 import GHC.TypeLits (type (+), type (-), type (<=))
 
 import Numeric.Natural (Natural)
 
-import Proof.Equational ((:~:))
-import qualified Proof.Equational as Proof
-import qualified Proof.Propositional as Proof
-
-import Data.Indexed.Vector ( Vector ((:^), Nil) )
+import Data.Indexed.Vector ( Vector (Nil) )
 import qualified Data.Indexed.Vector as Vector
-
-import Data.Indexed.Some
 
 
 -- | A Hint identifies a run of cells filled with a constant value.
@@ -189,8 +184,8 @@ initPuzzle extRowHints extColHints
 
 
 infer :: forall totalHintsLen lineLen a
-       . ( Sing.KnownNat totalHintsLen
-         , Sing.KnownNat lineLen
+       . ( KnownNat totalHintsLen
+         , KnownNat lineLen
          , totalHintsLen <= lineLen
          , Eq a
          )
@@ -202,14 +197,13 @@ infer None line
   = maybe [] (\Nil -> [Vector.replicate' Empty])
       (matchHint (Hint Empty (SNat @ lineLen)) line)
 
-infer ((hint :: Hint hintLen (Cell a)) `Cons` (hints :: Hints remainingHintsLen (Cell a))) line
-  = withMatchingHint hint line (\rest -> (Vector.append $ Vector.replicate (hint ^. run) (hint ^. value)) <$> infer hints rest)
-      \\ leTrans @ hintLen @ totalHintsLen @ lineLen
-      -- \\ plusMonotone1 
+infer (hint@(Hint cell (SNat :: SNat hintLen)) `Cons` (hints :: Hints remainingHintsLen (Cell a))) line
+  = withMatchingHint hint line (\rest -> Vector.append (Vector.replicate' @ hintLen cell) <$> infer hints rest)
+      \\ plusNatReverseR @ hintLen @ remainingHintsLen
 
 
-withWitness2 :: (Proof.IsTrue a, Proof.IsTrue b) -> ((a ~ True, b ~ True) => r) -> r
-withWitness2 (a, b) = Proof.withWitness a . Proof.withWitness b
+plusNatReverseR :: forall n m. (KnownNat n, KnownNat (n + m)) :- KnownNat m
+plusNatReverseR = Sub Dict
 
 
 can'tMatch :: Eq a => a -> Knowledge a -> Bool
@@ -217,7 +211,7 @@ can'tMatch x = withKnowledge False (/= x)
 
 
 matchHint :: forall l n a
-           . ( (l :<= n) ~ True
+           . ( (l <= n)
              , Eq a
              )
           =>    Hint l (Cell a)
