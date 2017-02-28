@@ -167,7 +167,7 @@ splitAt' xs
 
 splitAt :: forall s n a. (s <= n)
         => SNat s -> Vector n a -> (Vector s a, Vector (n - s) a)
-splitAt SNat = replicate'
+splitAt SNat = splitAt'
 
 data IsZero n
   where Zero :: (0 ~ n) => IsZero n
