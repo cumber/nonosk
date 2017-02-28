@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise
                 -fplugin GHC.TypeLits.KnownNat.Solver
+                -fplugin TypeNatSolver
   #-}
 {-# LANGUAGE DataKinds
            , DeriveFunctor
@@ -30,6 +31,9 @@ import Control.Applicative (Alternative((<|>), empty))
 import Control.Lens ((^.))
 import qualified Control.Lens as Lens
 
+import Data.Constraint
+import Data.Constraint.Nat
+
 import Data.Semigroup ((<>))
 
 import Data.Singletons.TypeLits.Show ()
@@ -45,7 +49,7 @@ import Data.Singletons.TypeLits
 import qualified Data.Singletons.TypeLits as Sing
 import qualified Data.Singletons.Prelude as Sing
 
-import GHC.TypeLits (type (+), type (-))
+import GHC.TypeLits (type (+), type (-), type (<=))
 
 import Numeric.Natural (Natural)
 
@@ -187,6 +191,7 @@ initPuzzle extRowHints extColHints
 infer :: forall totalHintsLen lineLen a
        . ( Sing.KnownNat totalHintsLen
          , Sing.KnownNat lineLen
+         , totalHintsLen <= lineLen
          , Eq a
          )
       =>    Hints totalHintsLen (Cell a)
@@ -197,8 +202,10 @@ infer None line
   = maybe [] (\Nil -> [Vector.replicate' Empty])
       (matchHint (Hint Empty (SNat @ lineLen)) line)
 
-infer (hint `Cons` hints) line
-  = withMatchingHint _ hint line (\rest -> (Vector.append $ Vector.replicate' (hint ^. value)) <$> infer hints rest)
+infer ((hint :: Hint hintLen (Cell a)) `Cons` (hints :: Hints remainingHintsLen (Cell a))) line
+  = withMatchingHint hint line (\rest -> (Vector.append $ Vector.replicate (hint ^. run) (hint ^. value)) <$> infer hints rest)
+      \\ leTrans @ hintLen @ totalHintsLen @ lineLen
+      -- \\ plusMonotone1 
 
 
 withWitness2 :: (Proof.IsTrue a, Proof.IsTrue b) -> ((a ~ True, b ~ True) => r) -> r
@@ -225,14 +232,14 @@ matchHint hint line
 
 withMatchingHint :: forall hintLen lineLen f a b
                   . ( Alternative f
+                    , hintLen <= lineLen
                     , Eq a
                     )
-                 => Proof.IsTrue (hintLen :<= lineLen)
-                    -> Hint hintLen (Cell a)
+                 =>    Hint hintLen (Cell a)
                     -> LineKnowledge lineLen a
                     -> (LineKnowledge (lineLen - hintLen) a -> f b)
                     -> f b
-withMatchingHint Proof.Witness hint line matchCont
+withMatchingHint hint line matchCont
   = let (block, rest) = Vector.splitAt (hint ^. run) line
      in if any (can'tMatch (hint ^. value)) block
           then  empty
