@@ -81,25 +81,11 @@ deriving instance Functor (Vector n)
 deriving instance Foldable (Vector n)
 deriving instance Traversable (Vector n)
 
-deriving instance Functor (Some Vector)
-deriving instance Foldable (Some Vector)
-deriving instance Traversable (Some Vector)
-
 instance Show a => Show (Vector n a)
   where show v = (  "[vector|"
                  <> (init . tail . show . toList) v
                  <> "|]"
                  )
-
-(.:) = (.) . (.)
-infixr 9 .:
-
-
-instance Show a => Show (Some Vector a)
-  where showsPrec d = (  showParen (d > 10)
-                      .  showString "fromList "
-                      .: shows . toList
-                      )
 
 
 instance Semigroup (Some Vector a)
