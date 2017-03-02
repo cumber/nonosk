@@ -19,6 +19,8 @@ library
   exposed-modules: Skapix.Puzzle
                    Data.Indexed.Some
                    Data.Indexed.Vector
+                   Data.Indexed.Vector.Capped
+                   Data.Indexed.Vector.Sum
                    Data.Indexed.Vector.QQ
   other-modules: Data.Singletons.TypeLits.Show
   -- other-extensions:

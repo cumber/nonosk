@@ -1,5 +1,4 @@
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise
-                -fplugin GHC.TypeLits.KnownNat.Solver
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver
                 -fplugin TypeNatSolver
   #-}
 {-# LANGUAGE DataKinds
@@ -183,27 +182,45 @@ initPuzzle extRowHints extColHints
 -}
 
 
-infer :: forall totalHintsLen lineLen a
-       . ( KnownNat totalHintsLen
-         , KnownNat lineLen
-         , totalHintsLen <= lineLen
-         , Eq a
-         )
-      =>    Hints totalHintsLen (Cell a)
-         -> LineKnowledge lineLen a
-         -> [Line lineLen a]
+possibleLines :: forall totalHintsLen lineLen a
+               . ( KnownNat totalHintsLen
+                 , KnownNat lineLen
+                 , totalHintsLen <= lineLen
+                 , Eq a
+                 )
+              =>    Hints totalHintsLen (Cell a)
+                 -> LineKnowledge lineLen a
+                 -> [Line lineLen a]
 
-infer None line
+possibleLines None line
   = maybe [] (\Nil -> [Vector.replicate' Empty])
       (matchHint (Hint Empty (SNat @ lineLen)) line)
 
-infer (hint@(Hint cell (SNat :: SNat hintLen)) `Cons` (hints :: Hints remainingHintsLen (Cell a))) line
-  = withMatchingHint hint line (\rest -> Vector.append (Vector.replicate' @ hintLen cell) <$> infer hints rest)
-      \\ plusNatReverseR @ hintLen @ remainingHintsLen
+possibleLines (hint `Cons` hints) line
+  = possibleLinesWithHint hint hints line
 
 
-plusNatReverseR :: forall n m. (KnownNat n, KnownNat (n + m)) :- KnownNat m
-plusNatReverseR = Sub Dict
+possibleLinesWithHint :: forall hintLen restHintsLen lineLen a
+                       . ( KnownNat lineLen
+                         , KnownNat (hintLen + restHintsLen)
+                         , (hintLen + restHintsLen) <= lineLen
+                         , Eq a
+                         )
+                      => (  Hint hintLen (Cell a)
+                         -> Hints restHintsLen (Cell a)
+                         -> LineKnowledge lineLen a
+                         -> [Line lineLen a]
+                         )
+
+possibleLinesWithHint hint hints line
+  = withMatchingHint hint line (prefixHintToSolutions hint hints)
+      \\ restHintsLenKnownNat hint hints
+  where prefixHintToSolutions h hs rest
+          = fmap (Vector.append (Vector.replicate (h ^. run) (h ^. value)))
+              (possibleLines hs rest)
+
+restHintsLenKnownNat :: Hint hintLen a -> Hints restLen a -> KnownNat (hintLen + restLen) :- KnownNat restLen
+restHintsLenKnownNat (Hint _ SNat) _ = Sub Dict
 
 
 can'tMatch :: Eq a => a -> Knowledge a -> Bool
