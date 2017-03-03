@@ -13,13 +13,14 @@
            , TypeFamilies
            , TypeInType
            , TypeOperators
+           , ViewPatterns
   #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin TypeNatSolver #-}
 
 module Data.Indexed.Vector
-  ( Vector (Nil, (:^), Cons)
+  ( Vector (Nil, (:^))
   , IsZero
   , append
   , isZero
@@ -66,14 +67,11 @@ import GHC.TypeLits ( type (+)
 import Data.Indexed.Some
 
 
-data Vector (n :: Nat) a
-  where Nil :: Vector 0 a
-        (:^)  :: a -> Vector n a -> Vector (n + 1) a
+data Vector n a
+  where Nil  :: Vector 0 a
+        (:^) :: a -> Vector n a -> Vector (n + 1) a
 infixr 5 :^
 
-pattern Cons :: a -> Vector n a -> Vector (n + 1) a
-pattern Cons x xs = x :^ xs
-infixr 5 `Cons`
 
 deriving instance Eq a => Eq (Vector n a)
 deriving instance Ord a => Ord (Vector n a)
@@ -104,7 +102,7 @@ instance KnownNat n => Applicative (Vector n)
 fromList :: [a] -> Some Vector a
 fromList [] = Some Nil
 fromList (x:xs) = case fromList xs
-                    of Some v -> Some (x `Cons` v)
+                    of Some v -> Some (x :^ v)
 
 
 instance Exts.IsList (Some Vector a)

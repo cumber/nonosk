@@ -19,6 +19,7 @@ library
   exposed-modules: Skapix.Puzzle
                    Data.Indexed.Capped
                    Data.Indexed.ForallIndex
+                   Data.Indexed.Index
                    Data.Indexed.Some
                    Data.Indexed.Vector
                    Data.Indexed.Vector.Sum
