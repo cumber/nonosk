@@ -21,13 +21,10 @@
 
 module Data.Indexed.Vector
   ( Vector (Nil, (:^))
-  , IsZero
   , append
-  , isZero
   , length
   , splitAt
   , splitAt'
-  , switchZero
   , replicate
   , replicate'
   )
@@ -52,8 +49,6 @@ import Data.Singletons.Decide ( Decision (Proved, Disproved)
                               )
 import Data.Singletons.TypeLits ( KnownNat
                                 , Nat
-                                , Sing (SNat)
-                                , SNat
                                 )
 
 import qualified GHC.Exts as Exts
@@ -64,6 +59,7 @@ import GHC.TypeLits ( type (+)
                     )
 
 
+import Data.Indexed.Index
 import Data.Indexed.Some
 
 
@@ -111,8 +107,8 @@ instance Exts.IsList (Some Vector a)
         toList = toList
 
 
-length :: KnownNat n => Vector n a -> SNat n
-length _ = SNat
+length :: KnownNat n => Vector n a -> Index n
+length _ = Index
 
 
 append :: Vector n a -> Vector m a -> Vector (n + m) a
@@ -127,19 +123,21 @@ zipWith f (x :^ xs) (y :^ ys) = f x y :^ zipWith f xs ys
 
 replicate' :: forall n a. KnownNat n => a -> Vector n a
 replicate' x
-  = switchZero (SNat @ n)
+  = switchZero (Index @ n)
       Nil
       (x :^ replicate' @ (n - 1) x)
 
 
-replicate :: SNat n -> a -> Vector n a
-replicate SNat = replicate'
+replicate :: Index n -> a -> Vector n a
+replicate Index = replicate'
 
 
 splitAt' :: forall s n a. (KnownNat s, s <= n)
          => Vector n a -> (Vector s a, Vector (n - s) a)
 splitAt' xs
-  = switchZero (SNat @ s)
+  = undefined
+{-
+  = switchZero (Index @ s)
       (Nil, xs)
       ( case xs
           of x :^ xs' -> case splitAt' @ (s - 1) xs'
@@ -148,24 +146,8 @@ splitAt' xs
                         \checker, which tells me that Nil wasn't matched \
                         \but then also tells me the Nil can't be matched"
       )
+-}
 
 splitAt :: forall s n a. (s <= n)
-        => SNat s -> Vector n a -> (Vector s a, Vector (n - s) a)
-splitAt SNat = splitAt'
-
-data IsZero n
-  where Zero :: (0 ~ n) => IsZero n
-        NonZero :: (1 <= n) => IsZero n
-
-deriving instance Show (IsZero n)
-
-
-switchZero :: forall n r. SNat n -> ((0 ~ n) => r) -> ((1 <= n) => r) -> r
-switchZero n zero nonzero
-  = case n %~ SNat @ 0
-      of Proved Refl -> zero
-         Disproved _ -> nonzero \\ plusMonotone1 @ 0 @ (n - 1) @ 1
-
-
-isZero :: SNat n -> IsZero n
-isZero n = switchZero n Zero NonZero
+        => Index s -> Vector n a -> (Vector s a, Vector (n - s) a)
+splitAt Index = splitAt'
