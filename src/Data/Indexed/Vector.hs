@@ -36,26 +36,16 @@ import Prelude hiding ( length
                       , zipWith
                       )
 
-import Data.Constraint
-import Data.Constraint.Nat
-
 import Data.Foldable ( toList )
 
 import Data.Semigroup ( Semigroup ((<>)) )
-
-import Data.Singletons.Decide ( Decision (Proved, Disproved)
-                              , (:~:) (Refl)
-                              , (%~)
-                              )
-import Data.Singletons.TypeLits ( KnownNat
-                                , Nat
-                                )
 
 import qualified GHC.Exts as Exts
 
 import GHC.TypeLits ( type (+)
                     , type (-)
                     , type (<=)
+                    , KnownNat
                     )
 
 
@@ -135,8 +125,6 @@ replicate Index = replicate'
 splitAt' :: forall s n a. (KnownNat s, s <= n)
          => Vector n a -> (Vector s a, Vector (n - s) a)
 splitAt' xs
-  = undefined
-{-
   = switchZero (Index @ s)
       (Nil, xs)
       ( case xs
@@ -146,7 +134,6 @@ splitAt' xs
                         \checker, which tells me that Nil wasn't matched \
                         \but then also tells me the Nil can't be matched"
       )
--}
 
 splitAt :: forall s n a. (s <= n)
         => Index s -> Vector n a -> (Vector s a, Vector (n - s) a)
