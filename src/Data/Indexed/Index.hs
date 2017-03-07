@@ -1,28 +1,39 @@
-{-# LANGUAGE GADTs
+{-# LANGUAGE AllowAmbiguousTypes
+           , DataKinds
+           , GADTs
+           , MagicHash
            , RankNTypes
            , ScopedTypeVariables
            , StandaloneDeriving
            , TypeApplications
            , TypeOperators
-           , TypeInType
   #-}
 
 module Data.Indexed.Index
   ( Index' (..)
   , Index
   , IsZero (..)
-  --, isZero
-  --, switchZero
+  , indexVal
+  , isZero
+  , switchZero
   )
 where
 
+import Data.Constraint
+
 import Data.Void ( Void )
 
+import GHC.Prim ( proxy# )
+
+import GHC.Natural ( Natural )
+
 import GHC.TypeLits ( type (<=)
-                    , type (-)
                     , KnownNat
-                    , natVal
+                    , Nat
+                    , natVal'
                     )
+
+import Unsafe.Coerce ( unsafeCoerce )
 
 data Index' n a
   where Index :: KnownNat n => Index' n a
@@ -30,11 +41,19 @@ data Index' n a
 type Index n = Index' n Void
 
 
+indexVal :: forall n a. Index' n a -> Natural
+indexVal Index = indexVal' @ n
+
+
+indexVal' :: forall n. KnownNat n => Natural
+indexVal' = fromIntegral $ natVal' (proxy# @ Nat @ n)
+
+
 instance Show (Index' n a)
-  where showsPrec p Index
+  where showsPrec p i
           = showParen (p > appPrec)
               ( showString "Index @ "
-              . showsPrec (appPrec + 1) (natVal (undefined :: p n))
+              . showsPrec (appPrec + 1) (indexVal i)
               )
           where appPrec = 10
 
@@ -46,14 +65,14 @@ data IsZero n
 deriving instance Show (IsZero n)
 
 
-{-
-switchZero :: forall n r. Index n -> ((0 ~ n) => r) -> ((1 <= n) => r) -> r
-switchZero = undefined -- n zero nonzero
-  = case n %~ Index @ 0
-      of Proved Refl -> zero
-         Disproved _ -> nonzero \\ plusMonotone1 @ 0 @ (n - 1) @ 1
-
-
 isZero :: Index n -> IsZero n
 isZero n = switchZero n Zero NonZero
--}
+
+
+switchZero :: forall n r. Index n -> ((0 ~ n) => r) -> ((1 <= n) => r) -> r
+switchZero n zero nonzero
+  = if indexVal n == 0
+      then case unsafeCoerce (Dict :: Dict (n ~ n))
+             of (Dict :: Dict (0 ~ n)) -> zero
+      else case unsafeCoerce (Dict :: Dict (0 <= n))
+             of (Dict :: Dict (1 <= n)) -> nonzero

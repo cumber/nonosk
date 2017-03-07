@@ -29,6 +29,7 @@ library
   build-depends: base ==4.9.*
                , constraints
                , equational-reasoning
+               , ghc-prim
                , ghc-typelits-knownnat
                , ghc-typelits-natnormalise
                , haskell-src-exts
