@@ -25,6 +25,7 @@ library
                    Data.Indexed.Vector.Sum
                    Data.Indexed.Vector.QQ
   other-modules: Data.Singletons.TypeLits.Show
+                 Data.Indexed.Util.ShowsList
   -- other-extensions:
   build-depends: base ==4.9.*
                , constraints

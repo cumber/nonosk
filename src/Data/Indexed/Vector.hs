@@ -52,6 +52,8 @@ import GHC.TypeLits ( type (+)
 import Data.Indexed.Index
 import Data.Indexed.Some
 
+import Data.Indexed.Util.ShowsList ( showsList )
+
 
 data Vector n a
   where Nil  :: Vector 0 a
@@ -65,11 +67,9 @@ deriving instance Functor (Vector n)
 deriving instance Foldable (Vector n)
 deriving instance Traversable (Vector n)
 
+
 instance Show a => Show (Vector n a)
-  where show v = (  "[vector|"
-                 <> (init . tail . show . toList) v
-                 <> "|]"
-                 )
+  where showsPrec _ v = showsList "[vector|" "|]" "," $ toList v
 
 
 instance Semigroup (Some Vector a)
