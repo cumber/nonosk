@@ -11,7 +11,7 @@ module Data.Indexed.Vector.QQ
   )
 where
 
-import Language.Haskell.Meta (parseExp)
+import Language.Haskell.Meta ( parseExp )
 
 import Language.Haskell.TH
   ( Q

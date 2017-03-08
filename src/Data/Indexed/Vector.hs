@@ -64,7 +64,7 @@ deriving instance Traversable (Vector n)
 
 
 instance Show a => Show (Vector n a)
-  where showsPrec _ v = showsList "[vector|" "|]" "," $ toList v
+  where showsPrec _ = showsList "[vector|" "|]" "," . map shows . toList
 
 
 instance Semigroup (Some Vector a)
