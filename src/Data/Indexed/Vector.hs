@@ -1,19 +1,14 @@
 {-# LANGUAGE GADTs
-           , DataKinds
            , DeriveFunctor
            , DeriveFoldable
            , DeriveTraversable
            , FlexibleInstances
-           , KindSignatures
-           , PatternSynonyms
-           , RankNTypes
            , ScopedTypeVariables
            , StandaloneDeriving
            , TypeApplications
            , TypeFamilies
            , TypeInType
            , TypeOperators
-           , ViewPatterns
   #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
