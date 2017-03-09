@@ -31,14 +31,14 @@ import Data.Indexed.Util.ShowsListLike ( showsListLike )
 
 
 data SumList f sum a
-  where Nil :: SumList f 0 a
+  where EmptySum :: SumList f 0 a
         (:+) :: f n a -> SumList f m a -> SumList f (n + m) a
 infixr 5 :+
 
 
 instance ForallIndex Show f a => Show (SumList f sum a)
   where showsPrec p
-          = showsListLike p ":+" consPrec "Nil"
+          = showsListLike p ":+" consPrec "EmptySum"
               . toListWith (showsPrecAnyIndex $ consPrec + 1)
           where consPrec = 5
 
@@ -69,5 +69,5 @@ instance ( ForallF Functor f
 
 
 toListWith :: (forall (n :: Nat). f n a -> r) -> SumList f sum a -> [r]
-toListWith _ Nil = []
+toListWith _ EmptySum = []
 toListWith f (x :+ xs) = f x : toListWith f xs
