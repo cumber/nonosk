@@ -26,6 +26,7 @@ library
                    Data.Indexed.Vector
                    Data.Indexed.Vector.QQ
   other-modules: Data.Singletons.TypeLits.Show
+                 Data.Indexed.Util.QuasiList
                  Data.Indexed.Util.ShowsList
   -- other-extensions:
   build-depends: base ==4.9.*
