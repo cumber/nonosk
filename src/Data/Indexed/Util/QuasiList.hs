@@ -19,17 +19,8 @@ where
 
 import Data.Semigroup ( (<>) )
 
-import Language.Haskell.Exts ( ParseMode ( extensions )
-                             , defaultParseMode
+import Language.Haskell.Exts ( defaultParseMode
                              , parseExpWithMode
-                             , Extension ( EnableExtension )
-                             , KnownExtension ( DataKinds
-                                              , GADTs
-                                              , KindSignatures
-                                              , TypeOperators
-                                              , TypeApplications
-                                              , QuasiQuotes
-                                              )
                              )
 
 import Language.Haskell.Meta ( parseResultToEither )
@@ -104,18 +95,4 @@ eitherToQ :: Either String a -> Q a
 eitherToQ = either fail pure
 
 
-parseListExp = parseExpWithMode indexedParseMode
-
-
-indexedParseMode
-  = defaultParseMode
-      { extensions
-          = map EnableExtension
-              [ DataKinds
-              , GADTs
-              , KindSignatures
-              , TypeOperators
-              , TypeApplications
-              , QuasiQuotes
-              ]
-      }
+parseListExp = parseExpWithMode defaultParseMode
