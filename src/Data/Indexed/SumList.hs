@@ -27,7 +27,7 @@ import Data.Indexed.ForallIndex ( ForallIndex
                                 , instAnyIndex
                                 )
 
-import Data.Indexed.Util.ShowsList ( showsList )
+import Data.Indexed.Util.ShowsListLike ( showsListLike )
 
 
 data SumList f sum a
@@ -37,12 +37,14 @@ infixr 5 :+
 
 
 instance ForallIndex Show f a => Show (SumList f sum a)
-  where showsPrec _
-          = showsList "[sumList|" "|]" "," . toListWith showsAnyIndex
+  where showsPrec p
+          = showsListLike p ":+" consPrec "Nil"
+              . toListWith (showsPrecAnyIndex $ consPrec + 1)
+          where consPrec = 5
 
 
-showsAnyIndex :: forall f n a. ForallIndex Show f a => f n a -> ShowS
-showsAnyIndex = shows \\ instAnyIndex @ Show @ f @ n @ a
+showsPrecAnyIndex :: forall f n a. ForallIndex Show f a => Int -> f n a -> ShowS
+showsPrecAnyIndex p = showsPrec p \\ instAnyIndex @ Show @ f @ n @ a
 
 
 instance ForallF Functor f => Functor (SumList f sum)

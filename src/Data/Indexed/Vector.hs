@@ -47,7 +47,7 @@ import GHC.TypeLits ( type (+)
 import Data.Indexed.Index
 import Data.Indexed.Some
 
-import Data.Indexed.Util.ShowsList ( showsList )
+import Data.Indexed.Util.ShowsListLike ( showsListLike )
 
 
 data Vector n a
@@ -64,7 +64,8 @@ deriving instance Traversable (Vector n)
 
 
 instance Show a => Show (Vector n a)
-  where showsPrec _ = showsList "[vector|" "|]" "," . map shows . toList
+  where showsPrec p
+          = showsListLike p ":^" 5 "Nil" . map shows . toList
 
 
 instance Semigroup (Some Vector a)
