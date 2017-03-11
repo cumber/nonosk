@@ -66,7 +66,7 @@ instance ( ForallF Functor f
               \\ instF @ Traversable @ f @ n
 
 
-withSome :: (forall n. f n a -> r) -> (Some f a -> r)
+withSome :: (forall n. KnownNat n => f n a -> r) -> (Some f a -> r)
 withSome f (Some x) = f x
 
 liftPlus :: (forall n m. f n a -> g m b -> h (n + m) c)
