@@ -179,7 +179,7 @@ instance Exts.IsList (Some Vector a)
         toList = toList
 
 
-index :: KnownNat n => Vector n a -> Index n
+index :: KnownNat n => Vector n a -> Index n ()
 index _ = Index
 
 
@@ -208,7 +208,7 @@ replicate' x
       (x :^ replicate' @ (n - 1) x)
 
 
-replicate :: Index n -> a -> Vector n a
+replicate :: Index n () -> a -> Vector n a
 replicate Index = replicate'
 
 
@@ -236,13 +236,13 @@ uncons xs = (head xs, tail xs)
 
 
 
-take :: (KnownNat k, k <= n) => Index k -> Vector n a -> Vector k a
+take :: (KnownNat k, k <= n) => Index k () -> Vector n a -> Vector k a
 take Index = take'
 
 take' :: forall k n a. (KnownNat k, k <= n) => Vector n a -> Vector k a
 take' = fst . splitAt'
 
-drop :: (KnownNat k, k <= n) => Index k -> Vector n a -> Vector (n - k) a
+drop :: (KnownNat k, k <= n) => Index k () -> Vector n a -> Vector (n - k) a
 drop Index = drop'
 
 drop' :: forall k n a. (KnownNat k, k <= n) => Vector n a -> Vector (n - k) a
@@ -260,7 +260,7 @@ splitAt' xs
       )
 
 splitAt :: forall s n a. (s <= n)
-        => Index s -> Vector n a -> (Vector s a, Vector (n - s) a)
+        => Index s () -> Vector n a -> (Vector s a, Vector (n - s) a)
 splitAt Index = splitAt'
 
 

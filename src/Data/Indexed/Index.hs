@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes
            , DataKinds
+           , FlexibleInstances
            , GADTs
            , MagicHash
            , RankNTypes
@@ -10,8 +11,7 @@
   #-}
 
 module Data.Indexed.Index
-  ( Index' (..)
-  , Index
+  ( Index (..)
   , IsZero (..)
   , indexVal
   , isZero
@@ -20,8 +20,6 @@ module Data.Indexed.Index
 where
 
 import Data.Constraint ( Dict (Dict) )
-
-import Data.Void ( Void )
 
 import GHC.Prim ( proxy# )
 
@@ -35,13 +33,11 @@ import GHC.TypeLits ( type (<=)
 
 import Unsafe.Coerce ( unsafeCoerce )
 
-data Index' n a
-  where Index :: KnownNat n => Index' n a
-
-type Index n = Index' n Void
+data Index n i
+  where Index :: KnownNat n => Index n ()
 
 
-indexVal :: forall n a. Index' n a -> Natural
+indexVal :: forall n. Index n () -> Natural
 indexVal Index = indexVal' @ n
 
 
@@ -49,7 +45,7 @@ indexVal' :: forall n. KnownNat n => Natural
 indexVal' = fromIntegral $ natVal' (proxy# @ Nat @ n)
 
 
-instance Show (Index' n a)
+instance Show (Index n ())
   where showsPrec p i
           = showParen (p > appPrec)
               ( showString "Index @ "
@@ -65,11 +61,11 @@ data IsZero n
 deriving instance Show (IsZero n)
 
 
-isZero :: Index n -> IsZero n
+isZero :: Index n () -> IsZero n
 isZero n = switchZero n Zero NonZero
 
 
-switchZero :: forall n r. Index n -> ((0 ~ n) => r) -> ((1 <= n) => r) -> r
+switchZero :: forall n r. Index n () -> ((0 ~ n) => r) -> ((1 <= n) => r) -> r
 switchZero n zero nonzero
   = if indexVal n == 0
       then case unsafeCoerce (Dict :: Dict (n ~ n))
