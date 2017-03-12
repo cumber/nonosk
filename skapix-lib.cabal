@@ -26,6 +26,7 @@ library
                    Data.Indexed.Vector
                    Data.Indexed.Vector.QQ
   other-modules: Data.Singletons.TypeLits.Show
+                 Data.Indexed.Util.NatProofs
                  Data.Indexed.Util.QuasiList
                  Data.Indexed.Util.ShowsListLike
   -- other-extensions:

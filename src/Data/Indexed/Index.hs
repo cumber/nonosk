@@ -19,7 +19,7 @@ module Data.Indexed.Index
   )
 where
 
-import Data.Constraint
+import Data.Constraint ( Dict (Dict) )
 
 import Data.Void ( Void )
 
