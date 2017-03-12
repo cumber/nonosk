@@ -35,43 +35,31 @@ import Data.Constraint ( (:-) (Sub)
                        , (\\)
                        )
 
-import Data.Foldable (toList)
+import Data.Foldable ( toList )
 
-import Data.Singletons.TypeLits.Show ()
+import GHC.TypeLits ( Nat
+                    , KnownNat
+                    , type (+)
+                    , type (-)
+                    , type (<=)
+                    )
 
-import Data.Singletons (SomeSing, toSing, withSomeSing)
-import Data.Singletons.TypeLits
-  ( KnownNat
-  , Nat
-  , Sing(SNat)
-  , SNat
-  , withKnownNat
-  )
-import qualified Data.Singletons.TypeLits as Sing
 
-import GHC.TypeLits (type (+), type (-), type (<=))
+import Data.Indexed.Index ( Index (Index) )
 
-import Numeric.Natural (Natural)
+import Data.Indexed.SumList
 
 import Data.Indexed.Vector ( Vector (Nil) )
 import qualified Data.Indexed.Vector as Vector
 
 
 -- | A Hint identifies a run of cells filled with a constant value.
-data Hint n a = Hint { _value :: !a, _run :: !(SNat n) }
+data Hint n a = Hint { _value :: !a, _run :: !(Index n ()) }
   deriving (Show, Functor)
 Lens.makeLenses ''Hint
 
 
-data Hints n a
-  where None :: Hints 0 a
-        Cons :: (  Hint blockLen a
-                -> Hints restLen a
-                -> Hints (blockLen + restLen) a
-                )
-infixr 5 `Cons`
-deriving instance Functor (Hints n)
-deriving instance Show a => Show (Hints n a)
+type Hints sum a = SumList Hint sum a
 
 
 -- | A Cell can be empty or filled with a particular value.
@@ -156,7 +144,7 @@ toRawLists :: Grid r c a -> [[a]]
 toRawLists = toList . fmap toList . unGrid
 
 
-constGrid :: SNat r -> SNat c -> a -> Grid r c a
+constGrid :: Index r () -> Index c () -> a -> Grid r c a
 constGrid r c = Grid . Vector.replicate r . Vector.replicate c
 
 
@@ -192,11 +180,11 @@ possibleLines :: forall totalHintsLen lineLen a
                  -> LineKnowledge lineLen a
                  -> [Line lineLen a]
 
-possibleLines None line
+possibleLines EmptySum line
   = maybe [] (\Nil -> [Vector.replicate' Empty])
-      (matchHint (Hint Empty (SNat @ lineLen)) line)
+      (matchHint (Hint Empty (Index @ lineLen)) line)
 
-possibleLines (hint `Cons` hints) line
+possibleLines (hint :+ hints) line
   = possibleLinesWithHint hint hints line
 
 
@@ -220,7 +208,7 @@ possibleLinesWithHint hint hints line
               (possibleLines hs rest)
 
 restHintsLenKnownNat :: Hint hintLen a -> Hints restLen a -> KnownNat (hintLen + restLen) :- KnownNat restLen
-restHintsLenKnownNat (Hint _ SNat) _ = Sub Dict
+restHintsLenKnownNat (Hint _ Index) _ = Sub Dict
 
 
 can'tMatch :: Eq a => a -> Knowledge a -> Bool
@@ -255,15 +243,3 @@ withMatchingHint hint line matchCont
      in if any (can'tMatch (hint ^. value)) block
           then  empty
           else  matchCont rest
-
-
-natVal :: SNat n -> Natural
-natVal n@SNat = fromInteger $ Sing.natVal n
-
-
-natSing :: Natural -> SomeSing Nat
-natSing = toSing . fromIntegral
-
-
-withSomeNat :: Natural -> (forall n. SNat n -> r) -> r
-withSomeNat n r = withSomeSing (fromIntegral n) (\s -> withKnownNat s (r s))
