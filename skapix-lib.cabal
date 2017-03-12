@@ -25,8 +25,7 @@ library
                    Data.Indexed.SumList.QQ
                    Data.Indexed.Vector
                    Data.Indexed.Vector.QQ
-  other-modules: Data.Singletons.TypeLits.Show
-                 Data.Indexed.Util.NatProofs
+  other-modules: Data.Indexed.Util.NatProofs
                  Data.Indexed.Util.QuasiList
                  Data.Indexed.Util.ShowsListLike
   -- other-extensions:
@@ -40,7 +39,6 @@ library
                , haskell-src-meta
                , lens
                , mtl
-               , singletons
                , template-haskell
                , type-nat-solver
   hs-source-dirs: src

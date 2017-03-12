@@ -16,7 +16,8 @@ module Data.Indexed.Capped
   )
 where
 
-import GHC.TypeLits ( KnownNat
+import GHC.TypeLits ( Nat
+                    , KnownNat
                     , type (<=)
                     , natVal
                     )
@@ -27,9 +28,7 @@ import Data.Constraint ( (\\) )
 import Data.Constraint.Forall ( ForallF
                               , instF
                               )
-import Data.Constraint.Nat
-
-import Data.Singletons.TypeLits ( Nat )
+import Data.Constraint.Nat ( leTrans )
 
 import Data.Indexed.ForallIndex ( ForallIndex
                                 , instAnyIndex
