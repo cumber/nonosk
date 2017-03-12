@@ -25,7 +25,7 @@
 module Skapix.Puzzle
 where
 
-import Control.Applicative (Alternative(empty))
+import Control.Applicative ( Alternative ((<|>), empty) )
 
 import Control.Lens ((^.))
 import qualified Control.Lens as Lens
@@ -45,7 +45,9 @@ import GHC.TypeLits ( Nat
                     )
 
 
-import Data.Indexed.Index ( Index (Index) )
+import Data.Indexed.Index ( Index (Index)
+                          , switchZero
+                          )
 
 import Data.Indexed.SumList
 
@@ -184,8 +186,12 @@ possibleLines EmptySum line
   = maybe [] (\Nil -> [Vector.replicate' Empty])
       (matchHint (Hint Empty (Index @ lineLen)) line)
 
-possibleLines (hint :+ hints) line
+possibleLines allHints@(hint :+ hints) line
   = possibleLinesWithHint hint hints line
+    <|> if hint ^. value == Empty
+          then []
+          else switchZero (Index @ (lineLen - totalHintsLen)) []
+                 (possibleLinesWithHint (Hint Empty (Index @ 1)) allHints line)
 
 
 possibleLinesWithHint :: forall hintLen restHintsLen lineLen a
