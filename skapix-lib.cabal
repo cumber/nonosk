@@ -46,3 +46,22 @@ library
   ghc-options: -Wall
                -Wmissing-exported-signatures
                -fno-warn-unticked-promoted-constructors
+
+test-suite tests
+  type: exitcode-stdio-1.0
+  hs-source-dirs: tests
+  default-language: Haskell2010
+  main-is: Main.hs
+  build-depends: base
+               , skapix-lib
+
+               , tasty
+               , tasty-expected-failure
+               , tasty-golden
+               , tasty-html
+               , tasty-quickcheck
+               , tasty-rerun
+               , tasty-smallcheck
+               , smallcheck
+               , QuickCheck
+               , generic-random
