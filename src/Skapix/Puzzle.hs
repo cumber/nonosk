@@ -56,9 +56,17 @@ import qualified Data.Indexed.Vector as Vector
 
 
 -- | A Hint identifies a run of cells filled with a constant value.
-data Hint n a = Hint { _value :: !a, _run :: !(Index n ()) }
-  deriving (Show, Functor)
-Lens.makeLenses ''Hint
+data Hint n a
+  where Hint :: KnownNat n => !a -> Hint n a
+
+makeHint :: Index n () -> a -> Hint n a
+makeHint Index = Hint
+
+value :: Lens.Lens (Hint n a) (Hint n b) a b
+value f (Hint x) = fmap Hint (f x)
+
+run :: Lens.Lens (Hint n a) (Hint m a) (Index n ()) (Index m ())
+run f (Hint x) = flip makeHint x <$> f Index
 
 
 type Hints sum a = SumList Hint sum a
@@ -183,7 +191,7 @@ possibleLines :: forall totalHintsLen lineLen a
                  -> [Line lineLen a]
 
 possibleLines EmptySum line
-  = withMatchingHint (Hint Empty (Index @ lineLen)) line
+  = withMatchingHint (Hint @lineLen Empty) line
       (\Nil -> [Vector.replicate' Empty])
 
 possibleLines allHints@(hint :+ hints) line
@@ -191,7 +199,7 @@ possibleLines allHints@(hint :+ hints) line
     <|> if hint ^. value == Empty
           then []
           else switchZero (Index @ (lineLen - totalHintsLen)) []
-                 (possibleLinesWithHint (Hint Empty (Index @ 1)) allHints line)
+                 (possibleLinesWithHint (Hint @1 Empty) allHints line)
 
 
 possibleLinesWithHint :: forall hintLen restHintsLen lineLen a
@@ -214,7 +222,7 @@ possibleLinesWithHint hint hints line
               (possibleLines hs rest)
 
 restHintsLenKnownNat :: Hint hintLen a -> Hints restLen a -> KnownNat (hintLen + restLen) :- KnownNat restLen
-restHintsLenKnownNat (Hint _ Index) _ = Sub Dict
+restHintsLenKnownNat (Hint _) _ = Sub Dict
 
 
 can'tMatch :: Eq a => a -> Knowledge a -> Bool
