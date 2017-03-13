@@ -45,6 +45,8 @@ import GHC.TypeLits ( Nat
                     )
 
 
+import Data.Indexed.Capped
+
 import Data.Indexed.Index ( Index (Index)
                           , switchZero
                           )
@@ -131,8 +133,8 @@ newtype Grid (r :: Nat) (c :: Nat) (a :: *)
 
 data Puzzle :: (* -> *) -> * -> *
   where Puzzle     :: { grid :: Grid (r :: Nat) (c :: Nat) (f a)
-                      --, rowHints :: Vector r (Hint broken (Cell a))
-                      --, colHints :: Vector c (Hint broken (Cell a))
+                      , rowHints :: Vector r (Capped c (SumList Hint) a)
+                      , colHints :: Vector c (Capped r (SumList Hint) a)
                       } -> Puzzle f a
 
 deriving instance Functor f => Functor (Puzzle f)
