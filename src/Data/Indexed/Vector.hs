@@ -29,6 +29,9 @@ module Data.Indexed.Vector
 
   , index
 
+  -- * Vector transformations
+  , transpose
+
   -- * Building vectors
   , replicate
   , replicate'
@@ -234,6 +237,9 @@ uncons :: (1 <= n) => Vector n a -> (a, Vector (n - 1) a)
 uncons xs = (head xs, tail xs)
 
 
+transpose :: KnownNat m => Vector n (Vector m a) -> Vector m (Vector n a)
+transpose Nil = replicate' Nil   -- 0 rows of n cols -> n rows of 0 cols
+transpose (row :^ rows) = zipWith (:^) row $ transpose rows
 
 
 take :: (KnownNat k, k <= n) => Index k () -> Vector n a -> Vector k a
