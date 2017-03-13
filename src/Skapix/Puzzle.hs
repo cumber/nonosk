@@ -183,8 +183,8 @@ possibleLines :: forall totalHintsLen lineLen a
                  -> [Line lineLen a]
 
 possibleLines EmptySum line
-  = maybe [] (\Nil -> [Vector.replicate' Empty])
-      (matchHint (Hint Empty (Index @ lineLen)) line)
+  = withMatchingHint (Hint Empty (Index @ lineLen)) line
+      (\Nil -> [Vector.replicate' Empty])
 
 possibleLines allHints@(hint :+ hints) line
   = possibleLinesWithHint hint hints line
@@ -219,20 +219,6 @@ restHintsLenKnownNat (Hint _ Index) _ = Sub Dict
 
 can'tMatch :: Eq a => a -> Knowledge a -> Bool
 can'tMatch x = withKnowledge False (/= x)
-
-
-matchHint :: forall l n a
-           . ( (l <= n)
-             , Eq a
-             )
-          =>    Hint l (Cell a)
-             -> LineKnowledge n a
-             -> Maybe (LineKnowledge (n - l) a)
-matchHint hint line
-  = let (block, rest) = Vector.splitAt (hint ^. run) line
-    in  if any (can'tMatch (hint ^. value)) block
-          then  Nothing
-          else  Just rest
 
 
 withMatchingHint :: forall hintLen lineLen f a b
