@@ -20,6 +20,7 @@ library
                    Data.Indexed.Capped
                    Data.Indexed.ForallIndex
                    Data.Indexed.Index
+                   Data.Indexed.Nat
                    Data.Indexed.Some
                    Data.Indexed.SumList
                    Data.Indexed.SumList.QQ

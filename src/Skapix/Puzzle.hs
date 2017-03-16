@@ -27,7 +27,9 @@ where
 
 import Control.Applicative ( Alternative ((<|>), empty) )
 
-import Control.Lens ((^.))
+import Control.Lens ( Lens
+                    , (^.)
+                    )
 import qualified Control.Lens as Lens
 
 import Data.Constraint ( (:-) (Sub)
@@ -37,6 +39,8 @@ import Data.Constraint ( (:-) (Sub)
 
 import Data.Foldable ( toList )
 
+import GHC.Natural ( Natural )
+
 import GHC.TypeLits ( Nat
                     , KnownNat
                     , type (+)
@@ -45,15 +49,26 @@ import GHC.TypeLits ( Nat
                     )
 
 
-import Data.Indexed.Capped
+import Data.Indexed.Capped ( Capped
+                           , tryCap
+                           )
 
 import Data.Indexed.Index ( Index (Index)
+                          , index'
+                          , someIndex
                           , switchZero
                           )
 
-import Data.Indexed.SumList
+import Data.Indexed.Some ( Some (Some)
+                         , Some2 (Some2)
+                         , withSome
+                         )
 
-import Data.Indexed.Vector ( Vector (Nil) )
+import Data.Indexed.SumList ( SumList ((:+), EmptySum) )
+import qualified Data.Indexed.SumList as SumList
+
+import Data.Indexed.Vector ( Vector (Nil)
+                           )
 import qualified Data.Indexed.Vector as Vector
 
 
@@ -61,14 +76,30 @@ import qualified Data.Indexed.Vector as Vector
 data Hint n a
   where Hint :: KnownNat n => !a -> Hint n a
 
+deriving instance Eq a => Eq (Hint n a)
+deriving instance Functor (Hint n)
+
+instance Show a => Show (Hint n a)
+  where showsPrec p (Hint x)
+          = showParen (p > appPrec)
+              ( showString "Hint @ "
+              . showsPrec (appPrec + 1) (index' @ n)
+              . showString " "
+              . showsPrec (appPrec + 1) x
+              )
+          where appPrec = 10
+
 makeHint :: Index n () -> a -> Hint n a
 makeHint Index = Hint
 
-value :: Lens.Lens (Hint n a) (Hint n b) a b
+value :: Lens (Hint n a) (Hint n b) a b
 value f (Hint x) = fmap Hint (f x)
 
-run :: Lens.Lens (Hint n a) (Hint m a) (Index n ()) (Index m ())
+run :: Lens (Hint n a) (Hint m a) (Index n ()) (Index m ())
 run f (Hint x) = flip makeHint x <$> f Index
+
+someHint :: Natural -> a -> Some Hint a
+someHint n a = withSome (someIndex n) (Some . flip makeHint a)
 
 
 type Hints sum a = SumList Hint sum a
@@ -131,25 +162,14 @@ newtype Grid (r :: Nat) (c :: Nat) (a :: *)
   deriving (Eq, Functor, Show)
 
 
-data Puzzle :: (* -> *) -> * -> *
-  where Puzzle     :: { grid :: Grid (r :: Nat) (c :: Nat) (f a)
+data Puzzle :: Nat -> Nat -> * -> *
+  where Puzzle     :: { grid :: Grid (r :: Nat) (c :: Nat) (Knowledge a)
                       , rowHints :: Vector r (Capped c (SumList Hint) a)
                       , colHints :: Vector c (Capped r (SumList Hint) a)
-                      } -> Puzzle f a
+                      } -> Puzzle r c a
 
-deriving instance Functor f => Functor (Puzzle f)
-deriving instance (Show a, Show (f a)) => Show (Puzzle f a)
-
-
--- | A Puzzle' is a non-dependently-typed analogue of 'Puzzle', with lists
---   of rows cells not constrained to form a proper grid, and not constrained
---   to match the number of row and column hints.
-data Puzzle' f broken a
-  = Puzzle' { grid' :: [[f a]]
-            --, rowHints' :: [Hint broken (Cell a)]
-            --, colHints' :: [Hint broken (Cell a)]
-            }
-  deriving (Eq, Show)
+deriving instance Functor (Puzzle r c)
+deriving instance (KnownNat r, KnownNat c, Show a) => Show (Puzzle r c a)
 
 
 toRawLists :: Grid r c a -> [[a]]
@@ -157,29 +177,28 @@ toRawLists = toList . fmap toList . unGrid
 
 
 constGrid :: Index r () -> Index c () -> a -> Grid r c a
-constGrid r c = Grid . Vector.replicate r . Vector.replicate c
+constGrid Index Index = constGrid'
 
 
-{-
-dropSize :: Puzzle f a -> Puzzle' f a
-dropSize (Puzzle { grid = g, rowHints = rhs, colHints = chs })
-  = Puzzle' { grid' = toRawLists g
-            , rowHints' = toList rhs
-            , colHints' = toList chs
-            }
+constGrid' :: (KnownNat r, KnownNat c) => a -> Grid r c a
+constGrid' = Grid . Vector.replicate' . Vector.replicate'
 
 
-instance (Eq (f a), Eq a) => Eq (Puzzle f a)
-  where (==) = (==) `on` dropSize
-
-
-initPuzzle :: [[Hint a]] -> [[Hint a]] -> Puzzle Cell a
+initPuzzle :: [[Some Hint a]] -> [[Some Hint a]] -> Maybe (Some2 Puzzle a)
 initPuzzle extRowHints extColHints
-  = let nRows = fromIntegral $ length extRowHints
-        nCols = fromIntegral $ length extColHints
-    in  case (toSing nRows, toSing nCols) of
-          (SomeSing r, SomeSing c) -> Puzzle (constGrid r c Empty) _ _
--}
+  = case ((vecSumFromLists extRowHints), (vecSumFromLists extColHints))
+      of (Some rows, Some cols)
+           -> let rows' = sequenceA $ fmap tryCap rows
+                  cols' = sequenceA $ fmap tryCap cols
+              in  Some2 <$> (Puzzle <$> pure (constGrid' Unknown)
+                                    <*> rows'
+                                    <*> cols'
+                            )
+
+
+
+vecSumFromLists :: [[Some f a]] -> Some Vector (Some (SumList f) a)
+vecSumFromLists = Vector.fromList . fmap SumList.fromSomeList
 
 
 possibleLines :: forall totalHintsLen lineLen a

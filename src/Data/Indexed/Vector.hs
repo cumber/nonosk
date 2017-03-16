@@ -27,12 +27,13 @@ module Data.Indexed.Vector
   , init
   , uncons
 
-  , index
+  , indexLength
 
   -- * Vector transformations
   , transpose
 
   -- * Building vectors
+  , fromList
   , replicate
   , replicate'
 
@@ -182,8 +183,8 @@ instance Exts.IsList (Some Vector a)
         toList = toList
 
 
-index :: KnownNat n => Vector n a -> Index n ()
-index _ = Index
+indexLength :: KnownNat n => Vector n a -> Index n ()
+indexLength _ = Index
 
 
 append :: Vector n a -> Vector m a -> Vector (n + m) a

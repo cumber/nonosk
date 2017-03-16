@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# LANGUAGE DataKinds
            , FlexibleContexts
            , GADTs
@@ -9,6 +10,10 @@
   #-}
 
 module Data.Indexed.SumList
+  ( SumList (..)
+  , toListWith
+  , fromSomeList
+  )
 where
 
 import Data.Constraint ( (\\) )
@@ -26,6 +31,8 @@ import GHC.TypeLits ( type (+)
 import Data.Indexed.ForallIndex ( ForallIndex
                                 , instAnyIndex
                                 )
+
+import Data.Indexed.Some
 
 import Data.Indexed.Util.ShowsListLike ( showsListLike )
 
@@ -48,13 +55,15 @@ showsPrecAnyIndex p = showsPrec p \\ instAnyIndex @ Show @ f @ n @ a
 
 
 instance ForallF Functor f => Functor (SumList f sum)
-  where fmap f ((x :: f n a) :+ xs)
+  where fmap _ EmptySum = EmptySum
+        fmap f ((x :: f n a) :+ xs)
           = fmap f x :+ fmap f xs
               \\ instF @ Functor @ f @ n
 
 
 instance ForallF Foldable f => Foldable (SumList f sum)
-  where foldMap f ((x :: f n a) :+ xs)
+  where foldMap _ EmptySum = mempty
+        foldMap f ((x :: f n a) :+ xs)
           = foldMap f x <> foldMap f xs
               \\ instF @ Foldable @ f @ n
 
@@ -63,7 +72,8 @@ instance ( ForallF Functor f
          , ForallF Foldable f
          , ForallF Traversable f
          ) => Traversable (SumList f sum)
-  where traverse f ((x :: f n a) :+ xs)
+  where traverse _ EmptySum = pure EmptySum
+        traverse f ((x :: f n a) :+ xs)
           = (:+) <$> traverse f x <*> traverse f xs
               \\ instF @ Traversable @ f @ n
 
@@ -71,3 +81,9 @@ instance ( ForallF Functor f
 toListWith :: (forall (n :: Nat). f n a -> r) -> SumList f sum a -> [r]
 toListWith _ EmptySum = []
 toListWith f (x :+ xs) = f x : toListWith f xs
+
+
+fromSomeList :: [Some f a] -> Some (SumList f) a
+fromSomeList [] = Some EmptySum
+fromSomeList (Some x : xs)
+  = forSome (Some . (x :+)) $ fromSomeList xs

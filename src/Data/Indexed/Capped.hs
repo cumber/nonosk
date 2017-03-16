@@ -12,6 +12,7 @@
 module Data.Indexed.Capped
   ( Capped (..)
   , relaxCap
+  , tryCap
   , withCapped
   )
 where
@@ -19,10 +20,7 @@ where
 import GHC.TypeLits ( Nat
                     , KnownNat
                     , type (<=)
-                    , natVal
                     )
-
-import Data.Proxy ( Proxy (Proxy) )
 
 import Data.Constraint ( (\\) )
 import Data.Constraint.Forall ( ForallF
@@ -30,9 +28,17 @@ import Data.Constraint.Forall ( ForallF
                               )
 import Data.Constraint.Nat ( leTrans )
 
+
 import Data.Indexed.ForallIndex ( ForallIndex
                                 , instAnyIndex
                                 )
+
+import Data.Indexed.Some ( Some (Some) )
+
+import Data.Indexed.Index ( index'
+                          , IsLessOrEqual (LessOrEqual, GreaterThan)
+                          , orderIndex'
+                          )
 
 
 data Capped l f a
@@ -44,7 +50,7 @@ instance (KnownNat l, ForallIndex Show f a) => Show (Capped l f a)
   where showsPrec p (Capped (x :: f n a))
           = showParen (p > appPrec)
               ( showString "Capped @ "
-              . showsPrec (appPrec + 1) (natVal $ Proxy @ l)
+              . showsPrec (appPrec + 1) (index' @ l)
               . showString " "
               . showsPrec (appPrec + 1) x
               )
@@ -75,6 +81,13 @@ instance ( ForallF Functor f
 
 withCapped :: (forall n. (n <= l, KnownNat n) => f n a -> r) -> (Capped l f a -> r)
 withCapped f (Capped x) = f x
+
+
+tryCap :: forall cap f a. KnownNat cap => Some f a -> Maybe (Capped cap f a)
+tryCap (Some (x :: f n a))
+  = case orderIndex' @ n @ cap
+      of LessOrEqual -> Just $ Capped x
+         GreaterThan -> Nothing
 
 
 relaxCap :: forall l m f a. (l <= m) => Capped l f a -> Capped m f a
