@@ -35,6 +35,7 @@ import qualified Control.Lens as Lens
 import Data.Constraint ( (:-) (Sub)
                        , Dict (Dict)
                        , (\\)
+                       , (:=>) (ins)
                        )
 
 import Data.Foldable ( toList )
@@ -88,6 +89,10 @@ instance Show a => Show (Hint n a)
               . showsPrec (appPrec + 1) x
               )
           where appPrec = 10
+
+instance Show a => KnownNat n :=> Show (Hint n a)
+  where ins = Sub Dict
+
 
 makeHint :: Index n () -> a -> Hint n a
 makeHint Index = Hint
@@ -170,6 +175,9 @@ data Puzzle :: Nat -> Nat -> * -> *
 
 deriving instance Functor (Puzzle r c)
 deriving instance (KnownNat r, KnownNat c, Show a) => Show (Puzzle r c a)
+
+instance Show a => (KnownNat r, KnownNat c) :=> Show (Puzzle r c a)
+  where ins = Sub Dict
 
 
 toRawLists :: Grid r c a -> [[a]]

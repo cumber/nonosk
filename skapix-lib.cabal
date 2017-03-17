@@ -18,7 +18,7 @@ cabal-version: >=1.10
 library
   exposed-modules: Skapix.Puzzle
                    Data.Indexed.Capped
-                   Data.Indexed.ForallIndex
+                   Data.Indexed.ForAnyKnownIndex
                    Data.Indexed.Index
                    Data.Indexed.Nat
                    Data.Indexed.Some

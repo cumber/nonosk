@@ -1,7 +1,9 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# LANGUAGE DataKinds
            , FlexibleContexts
+           , FlexibleInstances
            , GADTs
+           , MultiParamTypeClasses
            , RankNTypes
            , ScopedTypeVariables
            , TypeApplications
@@ -16,7 +18,11 @@ module Data.Indexed.SumList
   )
 where
 
-import Data.Constraint ( (\\) )
+import Data.Constraint ( (:-) (Sub)
+                       , (\\)
+                       , Dict (Dict)
+                       , (:=>) (ins)
+                       )
 import Data.Constraint.Forall ( ForallF
                               , instF
                               )
@@ -25,12 +31,13 @@ import Data.Monoid ( (<>) )
 
 import GHC.TypeLits ( type (+)
                     , Nat
+                    , KnownNat
                     )
 
 
-import Data.Indexed.ForallIndex ( ForallIndex
-                                , instAnyIndex
-                                )
+import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex
+                                     , instAnyKnownIndex
+                                     )
 
 import Data.Indexed.Some
 
@@ -39,19 +46,23 @@ import Data.Indexed.Util.ShowsListLike ( showsListLike )
 
 data SumList f sum a
   where EmptySum :: SumList f 0 a
-        (:+) :: f n a -> SumList f m a -> SumList f (n + m) a
+        (:+) :: KnownNat n => f n a -> SumList f m a -> SumList f (n + m) a
 infixr 5 :+
 
 
-instance ForallIndex Show f a => Show (SumList f sum a)
+instance ForAnyKnownIndex Show f a => Show (SumList f sum a)
   where showsPrec p
           = showsListLike p ":+" consPrec "EmptySum"
               . toListWith (showsPrecAnyIndex $ consPrec + 1)
           where consPrec = 5
 
 
-showsPrecAnyIndex :: forall f n a. ForallIndex Show f a => Int -> f n a -> ShowS
-showsPrecAnyIndex p = showsPrec p \\ instAnyIndex @ Show @ f @ n @ a
+instance ForAnyKnownIndex Show f a => KnownNat sum :=> Show (SumList f sum a)
+  where ins = Sub Dict
+
+
+showsPrecAnyIndex :: forall f n a. KnownNat n => ForAnyKnownIndex Show f a => Int -> f n a -> ShowS
+showsPrecAnyIndex p = showsPrec p \\ instAnyKnownIndex @ Show @ f @ n @ a
 
 
 instance ForallF Functor f => Functor (SumList f sum)
@@ -78,7 +89,8 @@ instance ( ForallF Functor f
               \\ instF @ Traversable @ f @ n
 
 
-toListWith :: (forall (n :: Nat). f n a -> r) -> SumList f sum a -> [r]
+toListWith :: (forall (n :: Nat). KnownNat n => f n a -> r)
+           -> (SumList f sum a -> [r])
 toListWith _ EmptySum = []
 toListWith f (x :+ xs) = f x : toListWith f xs
 

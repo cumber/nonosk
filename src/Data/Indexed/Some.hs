@@ -30,10 +30,10 @@ import Data.Constraint.Forall ( ForallF
                               , instF
                               )
 
-import Data.Indexed.ForallIndex ( ForallIndex
-                                , instAnyIndex
-                                , ForallIndex2
-                                , instAnyIndex2
+import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex
+                                , instAnyKnownIndex
+                                , ForAnyKnownIndex2
+                                , instAnyKnownIndex2
                                 )
 
 
@@ -41,13 +41,13 @@ data Some f a
   where Some :: KnownNat n => f (n :: Nat) a -> Some f a
 
 
-instance ForallIndex Show f a => Show (Some f a)
+instance ForAnyKnownIndex Show f a => Show (Some f a)
   where showsPrec p (Some (x :: f n a))
           = showParen (p > appPrec)
               ( showString "Some "
               . showsPrec (appPrec + 1) x
               )
-              \\ instAnyIndex @ Show @ f @ n @ a
+              \\ instAnyKnownIndex @ Show @ f @ n @ a
           where appPrec = 10
 
 
@@ -91,13 +91,13 @@ data Some2 f a
               => f (n :: Nat) (m :: Nat) a -> Some2 f a
 
 
-instance ForallIndex2 Show f a => Show (Some2 f a)
+instance ForAnyKnownIndex2 Show f a => Show (Some2 f a)
   where showsPrec p (Some2 (x :: f n m a))
           = showParen (p > appPrec)
               ( showString "Some2 "
               . showsPrec (appPrec + 1) x
               )
-              \\ instAnyIndex2 @ Show @ f @ n @ m @ a
+              \\ instAnyKnownIndex2 @ Show @ f @ n @ m @ a
           where appPrec = 10
 
 

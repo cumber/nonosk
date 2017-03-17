@@ -29,9 +29,9 @@ import Data.Constraint.Forall ( ForallF
 import Data.Constraint.Nat ( leTrans )
 
 
-import Data.Indexed.ForallIndex ( ForallIndex
-                                , instAnyIndex
-                                )
+import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex
+                                     , instAnyKnownIndex
+                                     )
 
 import Data.Indexed.Some ( Some (Some) )
 
@@ -46,7 +46,7 @@ data Capped l f a
                => f (n :: Nat) a -> Capped l f a
 
 
-instance (KnownNat l, ForallIndex Show f a) => Show (Capped l f a)
+instance (KnownNat l, ForAnyKnownIndex Show f a) => Show (Capped l f a)
   where showsPrec p (Capped (x :: f n a))
           = showParen (p > appPrec)
               ( showString "Capped @ "
@@ -54,7 +54,7 @@ instance (KnownNat l, ForallIndex Show f a) => Show (Capped l f a)
               . showString " "
               . showsPrec (appPrec + 1) x
               )
-              \\ instAnyIndex @ Show @ f @ n @ a
+              \\ instAnyKnownIndex @ Show @ f @ n @ a
           where appPrec = 10
 
 
