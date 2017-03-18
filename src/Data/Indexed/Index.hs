@@ -5,13 +5,13 @@
            , FlexibleInstances
            , GADTs
            , MagicHash
+           , MultiParamTypeClasses
            , RankNTypes
            , ScopedTypeVariables
            , StandaloneDeriving
            , TypeApplications
            , TypeFamilies
            , TypeOperators
-           , UndecidableInstances
   #-}
 
 module Data.Indexed.Index
@@ -28,7 +28,9 @@ module Data.Indexed.Index
   )
 where
 
-import Data.Constraint ( Dict (Dict) )
+import Data.Constraint ( Dict (Dict)
+                       , (:-) (Sub)
+                       )
 
 import Data.Proxy ( Proxy (Proxy) )
 
@@ -47,6 +49,8 @@ import GHC.TypeLits ( Nat
 
 import Unsafe.Coerce ( unsafeCoerce )
 
+
+import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex (instAnyKnownIndex) )
 
 import Data.Indexed.Nat ( type (<=)
                         , type (>=)
@@ -75,7 +79,6 @@ someIndex x
           Nothing -> error $ "Impossible: Natural " <> show x
                                <> " with no corresponding Nat"
 
-
 instance Show (Index n ())
   where showsPrec p i
           = showParen (p > appPrec)
@@ -83,6 +86,9 @@ instance Show (Index n ())
               . showsPrec (appPrec + 1) (index i)
               )
           where appPrec = 10
+
+instance ForAnyKnownIndex Show Index ()
+  where instAnyKnownIndex = Sub Dict
 
 
 data IsZero n
@@ -122,9 +128,9 @@ instance (KnownNat n, KnownNat m) => Show (IsLessOrEqual n m)
                 showsCons LessOrEqual = showString "LessOrEqual"
                 showsCons GreaterThan = showString "GreaterThan"
 
+
 orderIndex :: Index n () -> Index m () -> n `IsLessOrEqual` m
 orderIndex Index Index = orderIndex'
-
 
 orderIndex' :: forall n m. (KnownNat n, KnownNat m) => n `IsLessOrEqual` m
 orderIndex'

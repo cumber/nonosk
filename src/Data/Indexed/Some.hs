@@ -3,7 +3,6 @@
            , FlexibleContexts
            , RankNTypes
            , ScopedTypeVariables
-           , TypeApplications
            , TypeOperators
            , TypeInType
   #-}
@@ -25,16 +24,17 @@ import GHC.TypeLits ( Nat
                     , type (+)
                     )
 
-import Data.Constraint ( (\\) )
-import Data.Constraint.Forall ( ForallF
-                              , instF
-                              )
+import Data.Constraint ( (:-)
+                       , (\\)
+                       )
 
 import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex
-                                , instAnyKnownIndex
-                                , ForAnyKnownIndex2
-                                , instAnyKnownIndex2
-                                )
+                                     , instAnyKnownIndex
+                                     , ForAnyKnownIndexF
+                                     , instAnyKnownIndexF
+                                     , ForAnyKnownIndex2
+                                     , instAnyKnownIndex2
+                                     )
 
 
 data Some f a
@@ -47,29 +47,29 @@ instance ForAnyKnownIndex Show f a => Show (Some f a)
               ( showString "Some "
               . showsPrec (appPrec + 1) x
               )
-              \\ instAnyKnownIndex @ Show @ f @ n @ a
+              \\ (instAnyKnownIndex :: KnownNat n :- Show (f n a))
           where appPrec = 10
 
 
-instance ForallF Functor f => Functor (Some f)
+instance ForAnyKnownIndexF Functor f => Functor (Some f)
   where fmap f (Some (x :: f n a))
           = Some (fmap f x)
-              \\ instF @ Functor @ f @ n
+              \\ (instAnyKnownIndexF :: KnownNat n :- Functor (f n))
 
 
-instance ForallF Foldable f => Foldable (Some f)
+instance ForAnyKnownIndexF Foldable f => Foldable (Some f)
   where foldMap f (Some (x :: f n a))
           = foldMap f x
-              \\ instF @ Foldable @ f @ n
+              \\ (instAnyKnownIndexF :: KnownNat n :- Foldable (f n))
 
 
-instance ( ForallF Functor f
-         , ForallF Foldable f
-         , ForallF Traversable f
+instance ( ForAnyKnownIndexF Functor f
+         , ForAnyKnownIndexF Foldable f
+         , ForAnyKnownIndexF Traversable f
          ) => Traversable (Some f)
   where traverse f (Some (x :: f n a))
           = Some <$> traverse f x
-              \\ instF @ Traversable @ f @ n
+              \\ (instAnyKnownIndexF :: KnownNat n :- Traversable (f n))
 
 -- | Handle a @Some f a@ with a function that can handle @f n a@ for all @n@
 withSome :: Some f a -> (forall n. KnownNat n => f n a -> r) -> r
@@ -97,7 +97,9 @@ instance ForAnyKnownIndex2 Show f a => Show (Some2 f a)
               ( showString "Some2 "
               . showsPrec (appPrec + 1) x
               )
-              \\ instAnyKnownIndex2 @ Show @ f @ n @ m @ a
+              \\ (  instAnyKnownIndex2
+                 :: (KnownNat n, KnownNat m) :- Show (f n m a)
+                 )
           where appPrec = 10
 
 

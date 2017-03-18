@@ -4,6 +4,7 @@
            , DeriveFoldable
            , DeriveTraversable
            , FlexibleInstances
+           , MultiParamTypeClasses
            , PatternSynonyms
            , ScopedTypeVariables
            , StandaloneDeriving
@@ -58,7 +59,10 @@ import Prelude ( Functor (..), (<$>)
                , Int, (+), (*)
                )
 
-import Data.Constraint ( (\\) )
+import Data.Constraint ( Dict (Dict)
+                       , (:-) (Sub)
+                       , (\\)
+                       )
 import Data.Constraint.Nat ( leTrans )
 
 import Data.Foldable ( Foldable (..) )
@@ -76,6 +80,9 @@ import GHC.TypeLits ( type (+)
 import qualified GHC.TypeLits as TL
 
 
+import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex (instAnyKnownIndex)
+                                     , ForAnyKnownIndexF (instAnyKnownIndexF)
+                                     )
 import Data.Indexed.Index
 import Data.Indexed.Some
 
@@ -112,6 +119,19 @@ deriving instance Traversable (Vector n)
 instance Show a => Show (Vector n a)
   where showsPrec p
           = showsListLike p ":^" 5 "Nil" . fmap (showsPrec 5) . toList
+
+
+instance ForAnyKnownIndexF Functor Vector
+  where instAnyKnownIndexF = Sub Dict
+
+instance ForAnyKnownIndexF Foldable Vector
+  where instAnyKnownIndexF = Sub Dict
+
+instance ForAnyKnownIndexF Traversable Vector
+  where instAnyKnownIndexF = Sub Dict
+
+instance Show a => ForAnyKnownIndex Show Vector a
+  where instAnyKnownIndex = Sub Dict
 
 
 {-|

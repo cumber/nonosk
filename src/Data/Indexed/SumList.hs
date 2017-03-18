@@ -6,7 +6,6 @@
            , MultiParamTypeClasses
            , RankNTypes
            , ScopedTypeVariables
-           , TypeApplications
            , TypeInType
            , TypeOperators
   #-}
@@ -21,11 +20,7 @@ where
 import Data.Constraint ( (:-) (Sub)
                        , (\\)
                        , Dict (Dict)
-                       , (:=>) (ins)
                        )
-import Data.Constraint.Forall ( ForallF
-                              , instF
-                              )
 
 import Data.Monoid ( (<>) )
 
@@ -35,11 +30,15 @@ import GHC.TypeLits ( type (+)
                     )
 
 
-import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex
+import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndexF
+                                     , instAnyKnownIndexF
+                                     , ForAnyKnownIndex
                                      , instAnyKnownIndex
                                      )
 
-import Data.Indexed.Some
+import Data.Indexed.Some ( Some (Some)
+                         , forSome
+                         )
 
 import Data.Indexed.Util.ShowsListLike ( showsListLike )
 
@@ -56,37 +55,52 @@ instance ForAnyKnownIndex Show f a => Show (SumList f sum a)
               . toListWith (showsPrecAnyIndex $ consPrec + 1)
           where consPrec = 5
 
-
-instance ForAnyKnownIndex Show f a => KnownNat sum :=> Show (SumList f sum a)
-  where ins = Sub Dict
-
-
-showsPrecAnyIndex :: forall f n a. KnownNat n => ForAnyKnownIndex Show f a => Int -> f n a -> ShowS
-showsPrecAnyIndex p = showsPrec p \\ instAnyKnownIndex @ Show @ f @ n @ a
+instance ForAnyKnownIndex Show f a => ForAnyKnownIndex Show (SumList f) a
+  where instAnyKnownIndex = Sub Dict
 
 
-instance ForallF Functor f => Functor (SumList f sum)
+showsPrecAnyIndex :: forall f n a
+                   . (KnownNat n, ForAnyKnownIndex Show f a)
+                  => Int -> f n a -> ShowS
+showsPrecAnyIndex p = showsPrec p \\ ( instAnyKnownIndex
+                                     :: KnownNat n :- Show (f n a)
+                                     )
+
+
+instance ForAnyKnownIndexF Functor f => Functor (SumList f sum)
   where fmap _ EmptySum = EmptySum
         fmap f ((x :: f n a) :+ xs)
           = fmap f x :+ fmap f xs
-              \\ instF @ Functor @ f @ n
+              \\ ( instAnyKnownIndexF :: KnownNat n :- Functor (f n) )
+
+instance ForAnyKnownIndexF Functor f => ForAnyKnownIndexF Functor (SumList f)
+  where instAnyKnownIndexF = Sub Dict
 
 
-instance ForallF Foldable f => Foldable (SumList f sum)
+instance ForAnyKnownIndexF Foldable f => Foldable (SumList f sum)
   where foldMap _ EmptySum = mempty
         foldMap f ((x :: f n a) :+ xs)
           = foldMap f x <> foldMap f xs
-              \\ instF @ Foldable @ f @ n
+              \\ ( instAnyKnownIndexF :: KnownNat n :- Foldable (f n) )
+
+instance ForAnyKnownIndexF Foldable f => ForAnyKnownIndexF Foldable (SumList f)
+  where instAnyKnownIndexF = Sub Dict
 
 
-instance ( ForallF Functor f
-         , ForallF Foldable f
-         , ForallF Traversable f
+instance ( ForAnyKnownIndexF Functor f
+         , ForAnyKnownIndexF Foldable f
+         , ForAnyKnownIndexF Traversable f
          ) => Traversable (SumList f sum)
   where traverse _ EmptySum = pure EmptySum
         traverse f ((x :: f n a) :+ xs)
           = (:+) <$> traverse f x <*> traverse f xs
-              \\ instF @ Traversable @ f @ n
+              \\ ( instAnyKnownIndexF :: KnownNat n :- Traversable (f n) )
+
+instance ( ForAnyKnownIndexF Functor f
+         , ForAnyKnownIndexF Foldable f
+         , ForAnyKnownIndexF Traversable f
+         ) => ForAnyKnownIndexF Traversable (SumList f)
+  where instAnyKnownIndexF = Sub Dict
 
 
 toListWith :: (forall (n :: Nat). KnownNat n => f n a -> r)

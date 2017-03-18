@@ -22,15 +22,16 @@ import GHC.TypeLits ( Nat
                     , type (<=)
                     )
 
-import Data.Constraint ( (\\) )
-import Data.Constraint.Forall ( ForallF
-                              , instF
-                              )
+import Data.Constraint ( (:-)
+                       , (\\)
+                       )
 import Data.Constraint.Nat ( leTrans )
 
 
 import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex
                                      , instAnyKnownIndex
+                                     , ForAnyKnownIndexF
+                                     , instAnyKnownIndexF
                                      )
 
 import Data.Indexed.Some ( Some (Some) )
@@ -54,29 +55,29 @@ instance (KnownNat l, ForAnyKnownIndex Show f a) => Show (Capped l f a)
               . showString " "
               . showsPrec (appPrec + 1) x
               )
-              \\ instAnyKnownIndex @ Show @ f @ n @ a
+              \\ (instAnyKnownIndex :: KnownNat n :- Show (f n a))
           where appPrec = 10
 
 
-instance ForallF Functor f => Functor (Capped l f)
+instance ForAnyKnownIndexF Functor f => Functor (Capped l f)
   where fmap f (Capped (x :: f n a))
           = Capped (fmap f x)
-              \\ instF @ Functor @ f @ n
+              \\ (instAnyKnownIndexF :: KnownNat n :- Functor (f n))
 
 
-instance ForallF Foldable f => Foldable (Capped l f)
+instance ForAnyKnownIndexF Foldable f => Foldable (Capped l f)
   where foldMap f (Capped (x :: f n a))
           = foldMap f x
-              \\ instF @ Foldable @ f @ n
+              \\ (instAnyKnownIndexF :: KnownNat n :- Foldable (f n))
 
 
-instance ( ForallF Functor f
-         , ForallF Foldable f
-         , ForallF Traversable f
+instance ( ForAnyKnownIndexF Functor f
+         , ForAnyKnownIndexF Foldable f
+         , ForAnyKnownIndexF Traversable f
          ) => Traversable (Capped l f)
   where traverse f (Capped (x :: f n a))
           = Capped <$> traverse f x
-              \\ instF @ Traversable @ f @ n
+              \\ (instAnyKnownIndexF :: KnownNat n :- Traversable (f n))
 
 
 withCapped :: (forall n. (n <= l, KnownNat n) => f n a -> r) -> (Capped l f a -> r)

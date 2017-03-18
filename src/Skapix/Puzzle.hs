@@ -35,7 +35,6 @@ import qualified Control.Lens as Lens
 import Data.Constraint ( (:-) (Sub)
                        , Dict (Dict)
                        , (\\)
-                       , (:=>) (ins)
                        )
 
 import Data.Foldable ( toList )
@@ -53,6 +52,11 @@ import GHC.TypeLits ( Nat
 import Data.Indexed.Capped ( Capped
                            , tryCap
                            )
+
+import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex (instAnyKnownIndex)
+                                     , ForAnyKnownIndexF (instAnyKnownIndexF)
+                                     , ForAnyKnownIndex2 (instAnyKnownIndex2)
+                                     )
 
 import Data.Indexed.Index ( Index (Index)
                           , index'
@@ -78,7 +82,13 @@ data Hint n a
   where Hint :: KnownNat n => !a -> Hint n a
 
 deriving instance Eq a => Eq (Hint n a)
+
+
 deriving instance Functor (Hint n)
+
+instance ForAnyKnownIndexF Functor Hint
+  where instAnyKnownIndexF = Sub Dict
+
 
 instance Show a => Show (Hint n a)
   where showsPrec p (Hint x)
@@ -90,8 +100,8 @@ instance Show a => Show (Hint n a)
               )
           where appPrec = 10
 
-instance Show a => KnownNat n :=> Show (Hint n a)
-  where ins = Sub Dict
+instance Show a => ForAnyKnownIndex Show Hint a
+  where instAnyKnownIndex = Sub Dict
 
 
 makeHint :: Index n () -> a -> Hint n a
@@ -176,8 +186,8 @@ data Puzzle :: Nat -> Nat -> * -> *
 deriving instance Functor (Puzzle r c)
 deriving instance (KnownNat r, KnownNat c, Show a) => Show (Puzzle r c a)
 
-instance Show a => (KnownNat r, KnownNat c) :=> Show (Puzzle r c a)
-  where ins = Sub Dict
+instance Show a => ForAnyKnownIndex2 Show Puzzle a
+  where instAnyKnownIndex2 = Sub Dict
 
 
 toRawLists :: Grid r c a -> [[a]]
