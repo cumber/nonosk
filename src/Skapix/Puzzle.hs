@@ -214,9 +214,36 @@ initPuzzle extRowHints extColHints
                             )
 
 
-
 vecSumFromLists :: [[Some f a]] -> Some Vector (Some (SumList f) a)
 vecSumFromLists = Vector.fromList . fmap SumList.fromSomeList
+
+
+inferLine :: forall totalHintsLen lineLen a
+           . ( KnownNat totalHintsLen
+             , KnownNat lineLen
+             , totalHintsLen <= lineLen
+             , Eq a
+             )
+          =>    Hints totalHintsLen (Cell a)
+             -> LineKnowledge lineLen a
+             -> Maybe (LineKnowledge lineLen a)
+inferLine = possibleLinesToKnown .: possibleLines
+
+
+(.:) :: (c -> d) -> (a -> b -> c) -> (a -> b -> d)
+(.:) = (.) . (.)
+
+
+possibleLinesToKnown :: (KnownNat n, Eq a) => [Line n a] -> Maybe (LineKnowledge n a)
+possibleLinesToKnown
+  = sequenceA . fmap allSameToKnown . sequenceA
+
+
+allSameToKnown :: Eq a => [a] -> Maybe (Knowledge a)
+allSameToKnown [] = Nothing
+allSameToKnown (x : xs)
+  | all (== x) xs  = Just $ Known x
+  | otherwise      = Just Unknown
 
 
 possibleLines :: forall totalHintsLen lineLen a
