@@ -13,6 +13,7 @@ module Data.Indexed.Capped
   ( Capped (..)
   , relaxCap
   , tryCap
+  , forCapped
   , withCapped
   )
 where
@@ -80,8 +81,11 @@ instance ( ForAnyKnownIndexF Functor f
               \\ (instAnyKnownIndexF :: KnownNat n :- Traversable (f n))
 
 
-withCapped :: (forall n. (n <= l, KnownNat n) => f n a -> r) -> (Capped l f a -> r)
-withCapped f (Capped x) = f x
+forCapped :: (forall n. (n <= l, KnownNat n) => f n a -> r) -> (Capped l f a -> r)
+forCapped f (Capped x) = f x
+
+withCapped :: Capped l f a -> (forall n. (n <= l, KnownNat n) => f n a -> r) -> r
+withCapped c f = forCapped f c
 
 
 tryCap :: forall cap f a. KnownNat cap => Some f a -> Maybe (Capped cap f a)

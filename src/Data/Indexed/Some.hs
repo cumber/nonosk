@@ -71,13 +71,14 @@ instance ( ForAnyKnownIndexF Functor f
           = Some <$> traverse f x
               \\ (instAnyKnownIndexF :: KnownNat n :- Traversable (f n))
 
--- | Handle a @Some f a@ with a function that can handle @f n a@ for all @n@
-withSome :: Some f a -> (forall n. KnownNat n => f n a -> r) -> r
-withSome s f = forSome f s
 
 -- | Lift a function of @f n a@ for all @n@ to a function of @Some f a@
 forSome :: (forall n. KnownNat n => f n a -> r) -> (Some f a -> r)
 forSome f (Some x) = f x
+
+-- | Handle a @Some f a@ with a function that can handle @f n a@ for all @n@
+withSome :: Some f a -> (forall n. KnownNat n => f n a -> r) -> r
+withSome s f = forSome f s
 
 
 liftPlus :: (forall n m. f n a -> g m b -> h (n + m) c)
@@ -103,11 +104,11 @@ instance ForAnyKnownIndex2 Show f a => Show (Some2 f a)
           where appPrec = 10
 
 
+forSome2 :: (forall n m. (KnownNat n, KnownNat m) => f n m a -> r)
+          -> (Some2 f a -> r)
+forSome2 f (Some2 x) = f x
+
 withSome2 :: Some2 f a
           -> (forall n m. (KnownNat n, KnownNat m) => f n m a -> r)
           -> r
 withSome2 s f = forSome2 f s
-
-forSome2 :: (forall n m. (KnownNat n, KnownNat m) => f n m a -> r)
-          -> (Some2 f a -> r)
-forSome2 f (Some2 x) = f x
