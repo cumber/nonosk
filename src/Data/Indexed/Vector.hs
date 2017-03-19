@@ -43,7 +43,6 @@ module Data.Indexed.Vector
   , drop, drop'
   , splitAt, splitAt'
 
-  , inc, double
   )
 where
 
@@ -56,7 +55,6 @@ import Prelude ( Functor (..), (<$>)
                , Traversable (..)
                , ($), (.), id
                , fst, snd
-               , Int, (+), (*)
                )
 
 import Data.Constraint ( Dict (Dict)
@@ -289,10 +287,3 @@ splitAt' xs
 splitAt :: forall s n a. (s <= n)
         => Index s () -> Vector n a -> (Vector s a, Vector (n - s) a)
 splitAt Index = splitAt'
-
-
-inc :: forall n. KnownNat n => Int -> Vector n Int
-inc x = switchZero (Index @ n) Nil (x :^ inc @ (n - 1) (x + 1))
-
-double :: forall n. KnownNat n => Int -> Vector n Int
-double x = switchZero (Index @ n) Nil (x :^ double @ (n - 1) (x * 2))
