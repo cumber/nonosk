@@ -158,9 +158,9 @@ For @Vector n@ to be Monad, a nested monad is @Vector n (Vector n a)@; i.e. a
 square matrix. @'Control.Monad.join'@ takes the diagonal.
 
 @xs '>>=' f@ takes the first result of @f@ applied to the first element of @xs@,
-the second element of @f@ applied to the second element of @xs@, and so on. It's
+the second result of @f@ applied to the second element of @xs@, and so on. It's
 lazy in the values of all the off-diagonal elements, but does have to traverse
-the lists to skip over them, so this isn't particularly efficient.
+the lists to skip over the leading ones, so this isn't particularly efficient.
 -}
 instance KnownNat n => Monad (Vector n)
   where Nil >>= _ = Nil
@@ -276,8 +276,11 @@ uncons xs = (head xs, tail xs)
 
 
 transpose :: KnownNat m => Vector n (Vector m a) -> Vector m (Vector n a)
+transpose = sequenceA
+{- TODO: turn this into a quickcheck?
 transpose Nil = replicate' Nil   -- 0 rows of n cols -> n rows of 0 cols
 transpose (row :^ rows) = zipWith (:^) row $ transpose rows
+-}
 
 
 take :: (KnownNat k, k <= n) => Index k () -> Vector n a -> Vector k a
