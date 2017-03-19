@@ -20,6 +20,10 @@ module Data.Indexed.Index
   , index
   , index'
   , someIndex
+  , sameIndex
+  , sameIndex'
+  , withIndexOf
+  , withSameIndex
   , isZero
   , switchZero
   , IsLessOrEqual (..)
@@ -35,6 +39,8 @@ import Data.Constraint ( Dict (Dict)
 import Data.Proxy ( Proxy (Proxy) )
 
 import Data.Semigroup ( (<>) )
+
+import Data.Type.Equality ( (:~:) (Refl) )
 
 import GHC.Prim ( proxy# )
 
@@ -89,6 +95,27 @@ instance Show (Index n ())
 
 instance ForAnyKnownIndex Show Index ()
   where instAnyKnownIndex = Sub Dict
+
+
+sameIndex :: Index n () -> Index m () -> Maybe (n :~: m)
+sameIndex Index Index = sameIndex'
+
+sameIndex' :: forall n m. (KnownNat n, KnownNat m) => Maybe (n :~: m)
+sameIndex'
+  | index' @ n == index' @ m
+    = Just $ unsafeCoerce (Refl :: 0 :~: 0)
+  | otherwise
+    = Nothing
+
+withIndexOf :: KnownNat m => Index n () -> (f n a -> r) -> (f m a -> Maybe r)
+withIndexOf i@Index f = withSameIndex (const f) i
+
+withSameIndex :: forall f n a g m b r
+               . (KnownNat n, KnownNat m)
+              => (f n a -> g n b -> r) -> (f n a -> g m b -> Maybe r)
+withSameIndex f x y = case sameIndex' @ n @ m
+                      of Just Refl -> Just $ f x y
+                         Nothing   -> Nothing
 
 
 data IsZero n
