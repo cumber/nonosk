@@ -278,7 +278,7 @@ drop' = snd . splitAt'
 splitAt' :: forall k n a. (KnownNat k, k <= n)
          => Vector n a -> (Vector k a, Vector (n - k) a)
 splitAt' xs
-  = switchZero (Index @ k)
+  = switchZero' @ k
       (Nil, xs)
       ( case splitAt' @ (k - 1) (tail xs)
           of (hs, ts) -> (head xs :^ hs, ts)

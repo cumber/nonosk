@@ -26,6 +26,7 @@ module Data.Indexed.Index
   , withSameIndex
   , isZero
   , switchZero
+  , switchZero'
   , IsLessOrEqual (..)
   , orderIndex
   , orderIndex'
@@ -130,8 +131,11 @@ isZero n = switchZero n Zero NonZero
 
 
 switchZero :: forall n r. Index n () -> ((n ~ 0) => r) -> ((n >= 1) => r) -> r
-switchZero n zero nonzero
-  = case orderIndex n (Index @ 0)
+switchZero Index = switchZero' @ n
+
+switchZero' :: forall n r. KnownNat n => ((n ~ 0) => r) -> ((n >= 1) => r) -> r
+switchZero' zero nonzero
+  = case orderIndex' @ n @ 0
       of LessOrEqual -> zero
          GreaterThan -> nonzero
 
