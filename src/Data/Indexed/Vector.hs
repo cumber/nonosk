@@ -35,6 +35,8 @@ module Data.Indexed.Vector
 
   -- * Building vectors
   , fromList
+  , fromListIndexed
+  , fromListIndexed'
   , replicate
   , replicate'
 
@@ -55,6 +57,7 @@ import Prelude ( Functor (..), (<$>)
                , Traversable (..)
                , ($), (.), id
                , fst, snd
+               , Maybe (Just, Nothing)
                )
 
 import Data.Constraint ( Dict (Dict)
@@ -193,6 +196,20 @@ fromList :: [a] -> Some Vector a
 fromList [] = Some Nil
 fromList (x:xs) = case fromList xs
                     of Some v -> Some (x :^ v)
+
+
+fromListIndexed :: Index n () -> [a] -> Maybe (Vector n a)
+fromListIndexed i = forSome (withIndexOf i id) . fromList
+
+fromListIndexed' :: forall n a. KnownNat n => [a] -> Maybe (Vector n a)
+fromListIndexed'
+  = switchZero' @ n  mustBeEmpty oneMore
+  where mustBeEmpty []      = Just Nil
+        mustBeEmpty (_ : _) = Nothing
+
+        oneMore :: forall m b. (KnownNat m, 1 <= m) => [b] -> Maybe (Vector m b)
+        oneMore [] = Nothing
+        oneMore (x : xs) = (x :^) <$> fromListIndexed' @ (m - 1) xs
 
 
 instance Exts.IsList (Some Vector a)
