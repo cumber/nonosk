@@ -45,6 +45,8 @@ module Data.Indexed.Vector
   , drop, drop'
   , splitAt, splitAt'
 
+  -- * Zipping and unzipping vectors
+  , zipWith
   )
 where
 
