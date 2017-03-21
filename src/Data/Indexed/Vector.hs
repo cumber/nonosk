@@ -75,19 +75,26 @@ import Data.Semigroup ( Semigroup ((<>)) )
 
 import qualified GHC.Exts as Exts
 
-import GHC.TypeLits ( type (+)
-                    , type (-)
-                    , type (<=)
-                    , KnownNat
-                    )
-import qualified GHC.TypeLits as TL
-
 
 import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex (instAnyKnownIndex)
                                      , ForAnyKnownIndexF (instAnyKnownIndexF)
                                      )
-import Data.Indexed.Index
-import Data.Indexed.Some
+
+import Data.Indexed.Index ( Index (Index)
+                          , switchZero'
+                          , withIndexOf
+                          )
+import Data.Indexed.Some ( Some (Some)
+                         , liftPlus
+                         , forSome
+                         )
+
+import Data.Indexed.Nat ( KnownNat
+                        , type (+), type (-)
+                        , type (<=)
+                        )
+-- * as unqualified operator confuses haskell-src-exts, so Nat.*
+import qualified Data.Indexed.Nat as Nat
 
 import Data.Indexed.Util.ShowsListLike ( showsListLike )
 import Data.Indexed.Util.NatProofs ( minusMonotone1 )
@@ -237,14 +244,14 @@ zipWith _ Nil _ = Nil
 zipWith f (x :^ xs) (y :^ ys) = f x y :^ zipWith f xs ys
 
 
-crossWith :: (a -> b -> c) -> Vector n a -> Vector m b -> Vector (n TL.* m) c
+crossWith :: (a -> b -> c) -> Vector n a -> Vector m b -> Vector (n Nat.* m) c
 crossWith _ Nil _ = Nil
 crossWith f (x :^ xs) ys = (f x <$> ys) ++ crossWith f xs ys
 
 
 replicate' :: forall n a. KnownNat n => a -> Vector n a
 replicate' x
-  = switchZero (Index @ n)
+  = switchZero' @ n
       Nil
       (x :^ replicate' @ (n - 1) x)
 

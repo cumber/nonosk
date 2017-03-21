@@ -5,13 +5,16 @@
   #-}
 
 module Data.Indexed.Nat
-  ( type (<=), type (>=)
+  ( Nat, KnownNat
+  , type (+), type (-), type (*)
+  , type (<=), type (>=)
   , type (<), type (>)
   )
 where
 
-import GHC.TypeLits ( type (<=?)
-                    , type (<=)
+import GHC.TypeLits ( Nat, KnownNat
+                    , type (+), type (-), type (*)
+                    , type (<=?), type (<=)
                     )
 
 type n > m = (n <=? m) ~ False

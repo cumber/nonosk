@@ -47,9 +47,7 @@ import GHC.Prim ( proxy# )
 
 import GHC.Natural ( Natural )
 
-import GHC.TypeLits ( Nat
-                    , KnownNat
-                    , natVal'
+import GHC.TypeLits ( natVal'
                     , SomeNat (SomeNat)
                     , someNatVal
                     )
@@ -59,8 +57,8 @@ import Unsafe.Coerce ( unsafeCoerce )
 
 import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex (instAnyKnownIndex) )
 
-import Data.Indexed.Nat ( type (<=)
-                        , type (>=)
+import Data.Indexed.Nat ( Nat, KnownNat
+                        , type (<=), type (>=)
                         , type (>)
                         )
 

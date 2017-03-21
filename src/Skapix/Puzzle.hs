@@ -48,13 +48,6 @@ import Data.List ( unfoldr )
 
 import GHC.Natural ( Natural )
 
-import GHC.TypeLits ( Nat
-                    , KnownNat
-                    , type (+)
-                    , type (-)
-                    , type (<=)
-                    )
-
 
 import Data.Indexed.Capped ( Capped
                            , tryCap
@@ -71,6 +64,11 @@ import Data.Indexed.Index ( Index (Index)
                           , someIndex
                           , switchZero
                           )
+
+import Data.Indexed.Nat ( Nat, KnownNat
+                        , type (+), type (-)
+                        , type (<=)
+                        )
 
 import Data.Indexed.Some ( Some (Some)
                          , Some2 (Some2)

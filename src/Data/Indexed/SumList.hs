@@ -24,17 +24,14 @@ import Data.Constraint ( (:-) (Sub)
 
 import Data.Monoid ( (<>) )
 
-import GHC.TypeLits ( type (+)
-                    , Nat
-                    , KnownNat
-                    )
 
-
-import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndexF
-                                     , instAnyKnownIndexF
-                                     , ForAnyKnownIndex
-                                     , instAnyKnownIndex
+import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndexF (instAnyKnownIndexF)
+                                     , ForAnyKnownIndex (instAnyKnownIndex)
                                      )
+
+import Data.Indexed.Nat ( Nat, KnownNat
+                        , type (+)
+                        )
 
 import Data.Indexed.Some ( Some (Some)
                          , forSome

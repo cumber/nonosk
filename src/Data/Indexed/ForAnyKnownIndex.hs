@@ -6,18 +6,15 @@
   #-}
 
 module Data.Indexed.ForAnyKnownIndex
-  ( ForAnyKnownIndex
-  , instAnyKnownIndex
-  , ForAnyKnownIndexF
-  , instAnyKnownIndexF
-  , ForAnyKnownIndex2
-  , instAnyKnownIndex2
+  ( ForAnyKnownIndex (..)
+  , ForAnyKnownIndexF (..)
+  , ForAnyKnownIndex2 (..)
   )
 where
 
 import Data.Constraint ( (:-) )
 
-import GHC.TypeLits ( KnownNat )
+import Data.Indexed.Nat ( KnownNat )
 
 
 class ForAnyKnownIndex p f a

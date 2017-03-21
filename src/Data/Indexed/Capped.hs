@@ -18,22 +18,19 @@ module Data.Indexed.Capped
   )
 where
 
-import GHC.TypeLits ( Nat
-                    , KnownNat
-                    , type (<=)
-                    )
-
 import Data.Constraint ( (:-)
                        , (\\)
                        )
 import Data.Constraint.Nat ( leTrans )
 
 
-import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex
-                                     , instAnyKnownIndex
-                                     , ForAnyKnownIndexF
-                                     , instAnyKnownIndexF
+import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex (instAnyKnownIndex)
+                                     , ForAnyKnownIndexF (instAnyKnownIndexF)
                                      )
+
+import Data.Indexed.Nat ( Nat, KnownNat
+                        , type (<=)
+                        )
 
 import Data.Indexed.Some ( Some (Some) )
 

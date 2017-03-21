@@ -18,15 +18,10 @@ import Data.Constraint ( (:-) (Sub)
                        , Dict (Dict)
                        )
 
-import GHC.TypeLits ( type (+)
-                    , type (-)
-                    )
 
-
-import Data.Indexed.Nat ( type (<=)
-                        , type (>=)
-                        , type (<)
-                        , type (>)
+import Data.Indexed.Nat ( type (+), type (-)
+                        , type (<=), type (>=)
+                        , type (<), type (>)
                         )
 
 
