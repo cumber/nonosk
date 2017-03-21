@@ -42,8 +42,6 @@ import Data.Constraint ( (:-) (Sub)
                        , (\\)
                        )
 
-import Data.Foldable ( toList )
-
 import Data.List ( unfoldr )
 
 import GHC.Natural ( Natural )
@@ -72,16 +70,17 @@ import Data.Indexed.Nat ( Nat, KnownNat
 
 import Data.Indexed.Some ( Some (Some)
                          , Some2 (Some2)
-                         , forSome
                          , withSome
                          )
 
 import Data.Indexed.SumList ( SumList ((:+), EmptySum) )
 import qualified Data.Indexed.SumList as SumList
 
-import Data.Indexed.Vector ( Vector (Nil)
-                           )
+import Data.Indexed.Vector ( Vector (Nil) )
 import qualified Data.Indexed.Vector as Vector
+
+import Data.Indexed.Vector2 ( Vector2 (Vector2) )
+import qualified Data.Indexed.Vector2 as Vector2
 
 
 -- | A Hint identifies a run of cells filled with a constant value.
@@ -173,20 +172,17 @@ type Line n a = Vector n (Cell a)
 -- | A LineKnowledge is a 'Vector' of 'Knowledge' 'Cell's
 type LineKnowledge n a = Vector n (Knowledge (Cell a))
 
+-- | A Grid is a 'Vector2' of 'Cells's
+type Grid r c a = Vector2 r c (Cell a)
+
+-- | A GridKnowledge is a 'Vector2' of 'Knowledge 'Cell's
+type GridKnowledge r c a = Vector2 r c (Knowledge (Cell a))
+
 -- | A Line' is a 'Vector' of 'Cell''s
 type Line' n = Vector n Cell'
 
 -- | A @LineKnowledge' is a 'Vector' of @'Knowledge' 'Cell''@s
 type LineKnowledge' n = Vector n (Knowledge Cell')
-
-
-newtype Grid (r :: Nat) (c :: Nat) (a :: *)
-  = Grid { unGrid :: Vector r (Vector c a) }
-  deriving (Eq, Show, Functor, Foldable, Traversable)
-
-
-instance Show a => ForAnyKnownIndex2 Show Grid a
-  where instAnyKnownIndex2 = Sub Dict
 
 
 cellToAscii :: Knowledge (Cell ()) -> Char
@@ -200,17 +196,17 @@ asciiToCell '#' = Just $ Known (Filled ())
 asciiToCell '?' = Just Unknown
 asciiToCell _ = Nothing
 
-gridToAscii :: Grid r c (Knowledge (Cell ())) -> String
+gridToAscii :: GridKnowledge r c () -> String
 gridToAscii = unlines . gridToAsciiLines
 
-gridToAsciiLines :: Grid r c (Knowledge (Cell ())) -> [String]
-gridToAsciiLines = toRawLists . fmap cellToAscii
+gridToAsciiLines :: GridKnowledge r c () -> [String]
+gridToAsciiLines = Vector2.toLists . fmap cellToAscii
 
-asciiToGrid :: String -> Maybe (Some2 Grid (Knowledge (Cell ())))
+asciiToGrid :: String -> Maybe (Some2 Vector2 (Knowledge (Cell ())))
 asciiToGrid = asciiLinesToGrid . lines
 
-asciiLinesToGrid :: [String] -> Maybe (Some2 Grid (Knowledge (Cell ())))
-asciiLinesToGrid = fromRawLists <=< sequenceA2 . (fmap . fmap) asciiToCell
+asciiLinesToGrid :: [String] -> Maybe (Some2 Vector2 (Knowledge (Cell ())))
+asciiLinesToGrid = Vector2.fromLists <=< sequenceA2 . (fmap . fmap) asciiToCell
 
 
 sequenceA2 :: (Traversable s, Traversable t, Applicative f)
@@ -219,7 +215,7 @@ sequenceA2 = sequenceA . fmap sequenceA
 
 
 data Puzzle :: Nat -> Nat -> * -> *
-  where Puzzle     :: { grid :: Grid (r :: Nat) (c :: Nat) (Knowledge (Cell a))
+  where Puzzle     :: { grid :: GridKnowledge r c a
                       , rowHints :: Vector r (CappedHints c (Cell a))
                       , colHints :: Vector c (CappedHints r (Cell a))
                       } -> Puzzle r c a
@@ -231,35 +227,6 @@ instance Show a => ForAnyKnownIndex2 Show Puzzle a
   where instAnyKnownIndex2 = Sub Dict
 
 
-toRawLists :: Grid r c a -> [[a]]
-toRawLists = toList . fmap toList . unGrid
-
-
-fromRawLists :: [[a]] -> Maybe (Some2 Grid a)
-fromRawLists [] = Just . Some2 . Grid @ 0 @ 0 $ Nil
-fromRawLists (row : rows)
-  = withSome (Vector.fromList row) (rowsSameLength rows)
-  where rowsSameLength :: forall n a
-                        . KnownNat n
-                       => [[a]] -> Vector n a -> Maybe (Some2 Grid a)
-        rowsSameLength xss initial
-          = let maybeRest = sequenceA $ Vector.fromListIndexed' @ n <$> xss
-                maybeRows = Vector.fromList . (initial :) <$> maybeRest
-             in forSome (Some2 . Grid) <$> maybeRows
-
-
-constGrid :: Index r () -> Index c () -> a -> Grid r c a
-constGrid Index Index = constGrid'
-
-
-constGrid' :: (KnownNat r, KnownNat c) => a -> Grid r c a
-constGrid' = Grid . Vector.replicate' . Vector.replicate'
-
-
-transpose :: KnownNat c => Grid r c a -> Grid c r a
-transpose = Grid . Vector.transpose . unGrid
-
-
 initPuzzle :: Eq a => [[Some Hint a]] -> [[Some Hint a]] -> Maybe (Some2 Puzzle a)
 initPuzzle extRowHints extColHints
   = case ( (vecSumFromLists $ fmap addSpacers extRowHints)
@@ -268,7 +235,7 @@ initPuzzle extRowHints extColHints
       of (Some rows, Some cols)
            -> let rows' = sequenceA $ fmap tryCap rows
                   cols' = sequenceA $ fmap tryCap cols
-              in  Some2 <$> (Puzzle <$> pure (constGrid' Unknown)
+              in  Some2 <$> (Puzzle <$> pure (Vector2.replicate' Unknown)
                                     <*> rows'
                                     <*> cols'
                             )
@@ -290,7 +257,7 @@ vecSumFromLists = Vector.fromList . fmap SumList.fromSomeList
 
 
 solvePuzzle :: (KnownNat r, KnownNat c, Eq a)
-            => Puzzle r c a -> Maybe (Grid r c (Cell a))
+            => Puzzle r c a -> Maybe (Grid r c a)
 solvePuzzle puzzle
   = let finalGrid = safeLast . inferGrid (rowHints puzzle) (colHints puzzle)
                              $ (grid puzzle)
@@ -307,7 +274,7 @@ safeLast (x : xs) = Just $ go x xs
 inferGrid :: (KnownNat r, KnownNat c, Eq a)
             =>    Vector r (CappedHints c (Cell a))
                -> Vector c (CappedHints r (Cell a))
-               -> Grid r c (Knowledge (Cell a)) -> [Grid r c (Knowledge (Cell a))]
+               -> GridKnowledge r c a -> [GridKnowledge r c a]
 inferGrid rHints cHints grd
   = unfoldr step (inferRows rHints, inferColumns cHints, grd)
   where step :: Eq a
@@ -330,17 +297,17 @@ iterateMaybe f = unfoldr (fmap dup . f)
 
 inferRows :: (KnownNat c, Eq a)
           =>    Vector r (CappedHints c (Cell a))
-             -> Grid r c (Knowledge (Cell a))
-             -> Maybe (Grid r c (Knowledge (Cell a)))
+             -> GridKnowledge r c a
+             -> Maybe (GridKnowledge r c a)
 inferRows hints
-  = fmap Grid . sequenceA . Vector.zipWith inferLine hints . unGrid
+  = fmap Vector2 . sequenceA . Vector.zipWith inferLine hints . Vector2.toVectors
 
 
 inferColumns :: (KnownNat r, KnownNat c, Eq a)
              =>    Vector c (CappedHints r (Cell a))
-                -> Grid r c (Knowledge (Cell a))
-                -> Maybe (Grid r c (Knowledge (Cell a)))
-inferColumns hints = fmap transpose . inferRows hints . transpose
+                -> GridKnowledge r c a
+                -> Maybe (GridKnowledge r c a)
+inferColumns hints = fmap Vector2.transpose . inferRows hints . Vector2.transpose
 
 
 inferLine :: (KnownNat lineLen, Eq a)

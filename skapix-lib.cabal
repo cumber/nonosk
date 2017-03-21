@@ -25,6 +25,7 @@ library
                    Data.Indexed.SumList
                    Data.Indexed.SumList.QQ
                    Data.Indexed.Vector
+                   Data.Indexed.Vector2
                    Data.Indexed.Vector.QQ
   other-modules: Data.Indexed.Util.NatProofs
                  Data.Indexed.Util.QuasiList
