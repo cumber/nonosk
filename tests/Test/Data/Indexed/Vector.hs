@@ -21,11 +21,13 @@ import Data.Indexed.Index ( Index
 
 import Data.Indexed.Some ( Some
                          , forSome
+                         , withSome
                          )
 
 import qualified Data.Indexed.Vector as Vector
 
-import Scaffolding.SmallCheck ()
+import Scaffolding.SmallCheck ( vectorElements
+                              )
 
 
 tests :: TestTree
@@ -35,9 +37,19 @@ tests = testGroup "Vector" [ scProps
 
 scProps
   = testGroup "SmallCheck"
-      [ replicateList
+      [ appendList
+      , replicateList
       ]
 
+
+appendList
+  = SC.testProperty "toList (Vector.append xs ys) == toList xs ++ toList ys" test
+  where test :: Some Index () -> Some Index () -> Bool
+        test x y
+          = let xs = vectorElements x
+                ys = vectorElements y
+             in withSome xs (\xs' -> withSome ys (toList . Vector.append xs'))
+                  == toList xs ++ toList ys
 
 replicateList
   = SC.testProperty "toList . Vector.replicate == List.replicate" test

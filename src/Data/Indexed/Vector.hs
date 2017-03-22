@@ -39,6 +39,10 @@ module Data.Indexed.Vector
   , fromListIndexed'
   , replicate
   , replicate'
+  , enumerate
+  , enumerate'
+  , fromIndices
+  , fromIndices'
 
   -- * Extracting sub-vectors
   , take, take'
@@ -56,6 +60,8 @@ import Prelude ( Functor (..), (<$>)
                , Show (..), showsPrec
                , Eq (..)
                , Ord (..)
+               , Enum (..)
+               , Integral (..)
                , Traversable (..)
                , ($), (.), id
                , fst, snd
@@ -227,6 +233,13 @@ instance Exts.IsList (Some Vector a)
         toList = toList
 
 
+fromIndices' :: (KnownNat n, Integral i) => (i -> a) -> Vector n a
+fromIndices' gen = gen <$> enumerate' 0
+
+fromIndices :: Integral i => Index n () -> (i -> a) -> Vector n a
+fromIndices Index = fromIndices'
+
+
 indexLength :: KnownNat n => Vector n a -> Index n ()
 indexLength _ = Index
 
@@ -258,6 +271,14 @@ replicate' x
 
 replicate :: Index n () -> a -> Vector n a
 replicate Index = replicate'
+
+
+enumerate' :: forall n a. (KnownNat n, Enum a) => a -> Vector n a
+enumerate' x
+  = switchZero' @ n Nil (x :^ enumerate' @ (n - 1) (succ x))
+
+enumerate :: Enum a => Index n () -> a -> Vector n a
+enumerate Index = enumerate'
 
 
 head :: (1 <= n) => Vector n a -> a
