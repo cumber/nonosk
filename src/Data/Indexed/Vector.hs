@@ -137,6 +137,9 @@ instance Show a => Show (Vector n a)
           = showsListLike p ":^" 5 "Nil" . fmap (showsPrec 5) . toList
 
 
+instance Eq a => ForAnyKnownIndex Eq Vector a
+  where instAnyKnownIndex = Sub Dict
+
 instance ForAnyKnownIndexF Functor Vector
   where instAnyKnownIndexF = Sub Dict
 

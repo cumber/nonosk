@@ -59,7 +59,6 @@ import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex (instAnyKnownIndex)
 
 import Data.Indexed.Index ( Index (Index)
                           , index'
-                          , someIndex
                           , switchZero
                           )
 
@@ -71,6 +70,7 @@ import Data.Indexed.Nat ( Nat, KnownNat
 import Data.Indexed.Some ( Some (Some)
                          , Some2 (Some2)
                          , withSome
+                         , someIndex
                          )
 
 import Data.Indexed.SumList ( SumList ((:+), EmptySum) )

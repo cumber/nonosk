@@ -3,6 +3,7 @@
            , FlexibleContexts
            , RankNTypes
            , ScopedTypeVariables
+           , TypeApplications
            , TypeOperators
            , TypeInType
   #-}
@@ -12,6 +13,8 @@ module Data.Indexed.Some
   , forSome
   , withSome
   , liftPlus
+
+  , someIndex
 
   , Some2 (..)
   , forSome2
@@ -23,6 +26,20 @@ import Data.Constraint ( (:-)
                        , (\\)
                        )
 
+import Data.Kind ( Type )
+
+import Data.Maybe ( fromMaybe )
+
+import Data.Proxy ( Proxy (Proxy) )
+
+import Data.Semigroup ( (<>) )
+
+import GHC.Natural ( Natural )
+
+import GHC.TypeLits ( SomeNat (SomeNat)
+                    , someNatVal
+                    )
+
 
 import Data.Indexed.Nat ( Nat, KnownNat
                         , type (+)
@@ -32,6 +49,10 @@ import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex (instAnyKnownIndex)
                                      , ForAnyKnownIndexF (instAnyKnownIndexF)
                                      , ForAnyKnownIndex2 (instAnyKnownIndex2)
                                      )
+
+import Data.Indexed.Index ( Index (Index)
+                          , withSameIndex
+                          )
 
 
 data Some f a
@@ -46,6 +67,12 @@ instance ForAnyKnownIndex Show f a => Show (Some f a)
               )
               \\ (instAnyKnownIndex :: KnownNat n :- Show (f n a))
           where appPrec = 10
+
+
+instance ForAnyKnownIndex Eq f a => Eq (Some f (a :: Type))
+  where Some (xs :: f n a) == Some ys
+          = fromMaybe False $ withSameIndex (==) xs ys
+                  \\ (instAnyKnownIndex :: KnownNat n :- Eq (f n a))
 
 
 instance ForAnyKnownIndexF Functor f => Functor (Some f)
@@ -82,6 +109,13 @@ liftPlus :: (forall n m. f n a -> g m b -> h (n + m) c)
          -> (Some f a -> Some g b -> Some h c)
 liftPlus f (Some x) (Some y) = Some (f x y)
 
+
+someIndex :: Natural -> Some Index ()
+someIndex x
+  = case someNatVal . fromIntegral $ x
+       of Just (SomeNat (Proxy :: Proxy n)) -> Some (Index @ n)
+          Nothing -> error $ "Impossible: Natural " <> show x
+                               <> " with no corresponding Nat"
 
 
 data Some2 f a

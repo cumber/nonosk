@@ -37,13 +37,14 @@ import Data.Indexed.Some ( Some (Some)
                          , Some2 (Some2)
                          )
 
-import Data.Indexed.Vector ( Vector (Nil) )
+import Data.Indexed.Vector ( Vector )
 import qualified Data.Indexed.Vector as Vector
 
 import Data.Indexed.Vector2 ( Vector2 (Vector2) )
 
 import Scaffolding.SmallCheck ( Element
                               , Element2
+                              , list
                               , vector
                               , vector2
                               )
@@ -70,7 +71,11 @@ scProps
       , testAgainstNonEmptyList "Vector.init vs List.init"
           (Just . second toList . Vector.uncons) (List.uncons)
 
+      , indexLengthFoldable
+
       , transposeList
+
+      , fromListToList
 
       , replicateList
       ]
@@ -120,6 +125,13 @@ appendOperatorList
           = toList (xs Vector.++ ys) == toList xs ++ toList ys
 
 
+indexLengthFoldable
+  = SC.testProperty "Vector.indexLength  vs  Foldable.length"
+      $ SC.over (vector "X") test
+  where test :: Some Vector Element -> Bool
+        test (Some xs)
+          = (fromIntegral . index . Vector.indexLength) xs == length xs
+
 transposeList
   = SC.testProperty "Vector.transpose  vs  List.transpose"
       $ SC.over (vector2 "X") test
@@ -134,6 +146,12 @@ transposeList
                 emptyRows= List.genericReplicate (index' @ c) []
              in v == l || (index' @ r == 0 && index' @ c >= 1 && v == emptyRows)
 
+
+fromListToList
+  = SC.testProperty "Vector.fromList . toList"
+      $ SC.over (vector "X") test
+  where test :: Some Vector Element -> Bool
+        test (Some xs) = (Vector.fromList . toList) xs == Some xs
 
 replicateList
   = SC.testProperty "Vector.replicate  vs  List.replicate" test

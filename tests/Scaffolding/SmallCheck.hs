@@ -5,6 +5,7 @@
 module Scaffolding.SmallCheck
   ( Element
   , Element2
+  , list
   , vector
   , vector2
   )
@@ -18,13 +19,12 @@ import Test.SmallCheck.Series ( Serial (series)
                               )
 
 
-import Data.Indexed.Index ( Index
-                          , someIndex
-                          )
+import Data.Indexed.Index ( Index )
 
 import Data.Indexed.Some ( Some (Some)
                          , Some2 (Some2)
                          , forSome
+                         , someIndex
                          )
 
 import Data.Indexed.Vector ( Vector
@@ -52,6 +52,11 @@ data Element2 = Element2 String Natural Natural
 instance Show Element2
   where show (Element2 tag x y) = tag ++ "_" ++ show x ++ "_" ++ show y
 
+
+list :: Monad m => String -> Series m [Element]
+list tag = generate $ \d -> [ Element tag <$> [0 .. n]
+                            | n <- [0 .. fromIntegral d]
+                            ]
 
 vector :: Monad m => String -> Series m (Some Vector Element)
 vector tag = forSome (\i -> Some $ fromIndices i (Element tag)) <$> series

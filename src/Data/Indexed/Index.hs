@@ -19,7 +19,6 @@ module Data.Indexed.Index
   , IsZero (..)
   , index
   , index'
-  , someIndex
   , sameIndex
   , sameIndex'
   , withIndexOf
@@ -36,10 +35,6 @@ where
 import Data.Constraint ( Dict (Dict)
                        , (:-) (Sub)
                        )
-
-import Data.Proxy ( Proxy (Proxy) )
-
-import Data.Semigroup ( (<>) )
 
 import Data.Type.Equality ( (:~:) (Refl) )
 
@@ -62,8 +57,6 @@ import Data.Indexed.Nat ( Nat, KnownNat
                         , type (>)
                         )
 
-import Data.Indexed.Some ( Some (Some) )
-
 
 data Index n i
   where Index :: KnownNat n => Index n ()
@@ -76,13 +69,6 @@ index Index = index' @ n
 index' :: forall n. KnownNat n => Natural
 index' = fromIntegral $ natVal' (proxy# @ Nat @ n)
 
-
-someIndex :: Natural -> Some Index ()
-someIndex x
-  = case someNatVal . fromIntegral $ x
-       of Just (SomeNat (Proxy :: Proxy n)) -> Some (Index @ n)
-          Nothing -> error $ "Impossible: Natural " <> show x
-                               <> " with no corresponding Nat"
 
 instance Show (Index n ())
   where showsPrec p i
