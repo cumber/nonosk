@@ -1,29 +1,31 @@
 {-# LANGUAGE FlexibleInstances
-           , GeneralizedNewtypeDeriving
            , MultiParamTypeClasses
   #-}
 
 module Scaffolding.SmallCheck
-  ( identifiedElements
-  , vectorElements
+  ( Element
+  , vector
+  , list
   )
 where
 
-import qualified Data.List as List
+import Data.List ( inits )
 
-import GHC.Natural (Natural)
+import GHC.Natural ( Natural )
 
 import Test.SmallCheck.Series ( Serial (series)
+                              , Series
                               , generate
                               )
 
 
 import Data.Indexed.Index ( Index
-                          , index
                           , someIndex
                           )
 
-import Data.Indexed.Some ( Some (Some) )
+import Data.Indexed.Some ( Some (Some)
+                         , forSome
+                         )
 
 import Data.Indexed.Vector ( Vector
                            , fromIndices
@@ -34,15 +36,17 @@ instance Monad m => Serial m (Some Index ())
   where series = generate $ \d -> someIndex <$> [0 .. fromIntegral d]
 
 
-newtype Element = Element Natural
+-- | Helper type for writing tests for polymorphic functions; the only exported
+--   functionality is equality testing.
+data Element = Element String Natural
   deriving (Eq)
 
-elements :: [Element]
-elements = Element <$> [0..]
+instance Show Element
+  where show (Element tag index) = tag ++ show index
 
-vectorElements :: Some Index () -> Some Vector Element
-vectorElements (Some i) = Some $ fromIndices i Element
 
-identifiedElements :: Some Index () -> (Some Vector Element, [Element])
-identifiedElements (Some i)
-  = (vectorElements (Some i), List.genericTake (index i) elements)
+vector :: Monad m => String -> Series m (Some Vector Element)
+vector tag = forSome (\i -> Some $ fromIndices i (Element tag)) <$> series
+
+list :: Monad m => String -> Series m [Element]
+list tag = generate $ \d -> inits $ Element tag <$> [0 .. fromIntegral d]

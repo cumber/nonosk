@@ -4,6 +4,7 @@ module Test.Data.Indexed.Vector
   ( tests )
 where
 
+import Control.Monad ( (<=<) )
 import Data.Foldable ( toList )
 
 import qualified Data.List as List
@@ -21,12 +22,14 @@ import Data.Indexed.Index ( Index
 
 import Data.Indexed.Some ( Some
                          , forSome
-                         , withSome
+                         , liftPlus
                          )
 
+import Data.Indexed.Vector ( Vector )
 import qualified Data.Indexed.Vector as Vector
 
-import Scaffolding.SmallCheck ( vectorElements
+import Scaffolding.SmallCheck ( Element
+                              , vector
                               )
 
 
@@ -42,14 +45,15 @@ scProps
       ]
 
 
+over2 s1 s2 q = SC.over s1 (\x -> SC.over s2 (\y -> q x y))
+
+
 appendList
-  = SC.testProperty "toList (Vector.append xs ys) == toList xs ++ toList ys" test
-  where test :: Some Index () -> Some Index () -> Bool
-        test x y
-          = let xs = vectorElements x
-                ys = vectorElements y
-             in withSome xs (\xs' -> withSome ys (toList . Vector.append xs'))
-                  == toList xs ++ toList ys
+  = SC.testProperty "toList (Vector.append xs ys) == toList xs ++ toList ys"
+      $ over2 (vector "X") (vector "Y") test
+  where test :: Some Vector Element -> Some Vector Element -> Bool
+        test xs ys
+          = toList (liftPlus Vector.append xs ys) == toList xs ++ toList ys ++ toList ys
 
 replicateList
   = SC.testProperty "toList . Vector.replicate == List.replicate" test
