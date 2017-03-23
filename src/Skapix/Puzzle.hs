@@ -271,28 +271,27 @@ safeLast (x : xs) = Just $ go x xs
   where go y [] = y
         go _ (y : ys) = go y ys
 
+
 inferGrid :: (KnownNat r, KnownNat c, Eq a)
             =>    Vector r (CappedHints c (Cell a))
                -> Vector c (CappedHints r (Cell a))
                -> GridKnowledge r c a -> [GridKnowledge r c a]
-inferGrid rHints cHints grd
-  = unfoldr step (inferRows rHints, inferColumns cHints, grd)
-  where step :: Eq a
-             =>    (a -> Maybe a, a -> Maybe a, a)
-                -> Maybe (a, (a -> Maybe a, a -> Maybe a, a))
-        step (f, g, x) = dup3rd <$> (checkNotEq x (g, f, ) =<< f x)
-
-        checkNotEq x f x'
-          | x == x'   = Nothing
-          | otherwise = Just (f x')
-
-        dup3rd (x, y, z) = (z, (x, y, z))
-
+inferGrid rHints cHints
+  = takeUntilDup . iterateMaybe (inferRows rHints <=< inferColumns cHints)
 
 
 iterateMaybe :: (a -> Maybe a) -> a -> [a]
 iterateMaybe f = unfoldr (fmap dup . f)
   where dup x = (x, x)
+
+
+takeUntilDup :: Eq a => [a] -> [a]
+takeUntilDup [] = []
+takeUntilDup (x : xs) = x : go x xs
+  where go _ [] = []
+        go prev (y : ys)
+          | prev == y  = []
+          | otherwise  = y : go y ys
 
 
 inferRows :: (KnownNat c, Eq a)
