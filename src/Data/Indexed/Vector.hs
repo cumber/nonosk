@@ -217,7 +217,7 @@ fromList (x:xs) = case fromList xs
 
 
 fromListIndexed :: Index n () -> [a] -> Maybe (Vector n a)
-fromListIndexed i = forSome (withIndexOf i id) . fromList
+fromListIndexed Index = fromListIndexed'
 
 fromListIndexed' :: forall n a. KnownNat n => [a] -> Maybe (Vector n a)
 fromListIndexed'
