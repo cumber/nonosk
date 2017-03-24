@@ -42,9 +42,9 @@ import qualified Data.Indexed.Vector as Vector
 
 import Data.Indexed.Vector2 ( Vector2 (Vector2) )
 
+import Scaffolding.SmallCheck ( taggedF )
 import Scaffolding.Probe ( Probe
                          , Tagged
-                         , taggedF
                          )
 
 

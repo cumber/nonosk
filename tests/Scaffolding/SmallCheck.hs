@@ -1,17 +1,15 @@
-{-# LANGUAGE FlexibleInstances
+{-# LANGUAGE ConstraintKinds
+           , FlexibleContexts
+           , FlexibleInstances
            , MultiParamTypeClasses
+           , TypeInType
   #-}
 
 module Scaffolding.SmallCheck
-  ( Element
-  , Element2
-  , list
-  , vector
-  , vector2
+  ( tagged
+  , taggedF
   )
 where
-
-import GHC.Natural ( Natural )
 
 import Test.SmallCheck.Series ( Serial (series)
                               , Series
@@ -19,51 +17,51 @@ import Test.SmallCheck.Series ( Serial (series)
                               )
 
 
-import Data.Indexed.Index ( Index )
+import Scaffolding.Probe ( Probe (Probe, ProbeEnum)
+                         , Tagged (Tagged)
+                         )
+
+import Data.Indexed.Index ( Index
+                          , index
+                          )
 
 import Data.Indexed.Some ( Some (Some)
-                         , Some2 (Some2)
                          , forSome
+                         , Some2 (Some2)
                          , someIndex
                          )
 
-import Data.Indexed.Vector ( Vector
-                           , fromIndices
-                           )
+import Data.Indexed.Vector ( Vector )
+import qualified Data.Indexed.Vector as Vector
+
 import Data.Indexed.Vector2 ( Vector2 (Vector2) )
 
 
+tagged :: Serial m (Probe cs) => String -> Series m (Tagged cs)
+tagged tag = Tagged tag <$> series
+
+taggedF :: (Serial m (f (Probe cs)), Functor f)
+        => String -> Series m (f (Tagged cs))
+taggedF tag = fmap (Tagged tag) <$> series
+
+
 instance Monad m => Serial m (Some Index ())
-  where series = generate $ \d -> someIndex <$> [0 .. fromIntegral d]
+  where series = generate $ \d -> if d < 0
+                                    then  []
+                                    else  someIndex <$> [0 .. fromIntegral d]
 
 
--- | Helper type for writing tests for polymorphic functions; the only exported
---   functionality is equality testing.
-data Element = Element String Natural
-  deriving (Eq)
+instance Monad m => Serial m (Some Vector (Probe '[]))
+  where series = forSome (\i -> Some $ Vector.fromIndices i Probe) <$> series
 
-instance Show Element
-  where show (Element tag index) = tag ++ show index
-
-
-data Element2 = Element2 String Natural Natural
-  deriving (Eq)
-
-instance Show Element2
-  where show (Element2 tag x y) = tag ++ "_" ++ show x ++ "_" ++ show y
+instance Monad m => Serial m (Some2 Vector2 (Probe '[]))
+  where series
+          = let makeRow len r = Vector.fromIndices len (Probe . pos len r)
+                pos rowLenIndex rowNo c = index rowLenIndex * rowNo + c
+                makeVectors (Some rows, Some cols)
+                  = Some2 . Vector2 $ Vector.fromIndices rows (makeRow cols)
+             in makeVectors <$> series
 
 
-list :: Monad m => String -> Series m [Element]
-list tag = generate $ \d -> [ Element tag <$> [0 .. n]
-                            | n <- [0 .. fromIntegral d]
-                            ]
-
-vector :: Monad m => String -> Series m (Some Vector Element)
-vector tag = forSome (\i -> Some $ fromIndices i (Element tag)) <$> series
-
-vector2 :: Monad m => String -> Series m (Some2 Vector2 Element2)
-vector2 tag
-  = let makeRow len r = fromIndices len (Element2 tag r)
-        makeVectors (Some rows, Some cols)
-          = Some2 . Vector2 $ fromIndices rows (makeRow cols)
-     in makeVectors <$> series
+instance Monad m => Serial m (Probe '[Enum])
+  where series = ProbeEnum <$> series
