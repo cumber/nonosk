@@ -42,10 +42,7 @@ import GHC.Prim ( proxy# )
 
 import GHC.Natural ( Natural )
 
-import GHC.TypeLits ( natVal'
-                    , SomeNat (SomeNat)
-                    , someNatVal
-                    )
+import GHC.TypeLits ( natVal' )
 
 import Unsafe.Coerce ( unsafeCoerce )
 

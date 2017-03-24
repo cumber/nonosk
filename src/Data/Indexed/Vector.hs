@@ -88,11 +88,9 @@ import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex (instAnyKnownIndex)
 
 import Data.Indexed.Index ( Index (Index)
                           , switchZero'
-                          , withIndexOf
                           )
 import Data.Indexed.Some ( Some (Some)
                          , liftPlus
-                         , forSome
                          )
 
 import Data.Indexed.Nat ( KnownNat
