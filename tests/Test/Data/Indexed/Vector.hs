@@ -42,12 +42,10 @@ import qualified Data.Indexed.Vector as Vector
 
 import Data.Indexed.Vector2 ( Vector2 (Vector2) )
 
-import Scaffolding.SmallCheck ( Element
-                              , Element2
-                              , list
-                              , vector
-                              , vector2
-                              )
+import Scaffolding.Probe ( Probe
+                         , Tagged
+                         , taggedF
+                         )
 
 
 tests :: TestTree
@@ -76,7 +74,8 @@ scProps
       , transposeList
 
       , fromListToList
-
+      , fromListIndexedToList
+      , enumerateList
       , replicateList
       ]
 
@@ -84,24 +83,24 @@ scProps
 testAgainstList
   :: Eq r
   =>    String
-     -> (forall n. KnownNat n => Vector n Element -> r)
-     -> ([Element] -> r)
+     -> (forall n. KnownNat n => Vector n (Probe '[]) -> r)
+     -> ([Probe '[]] -> r)
      -> TestTree
 testAgainstList label vectorOp listOp
-  = SC.testProperty label $ SC.over (vector "X") test
+  = SC.testProperty label test
   where test (Some xs) = vectorOp xs == (listOp . toList) xs
 
 
 testAgainstNonEmptyList
   :: Eq r
   =>    String
-     -> (forall n. (KnownNat n, n >= 1) => Vector n Element -> r)
-     -> ([Element] -> r)
+     -> (forall n. (KnownNat n, n >= 1) => Vector n (Probe '[]) -> r)
+     -> ([Probe '[]] -> r)
      -> TestTree
 testAgainstNonEmptyList label vectorOp listOp
-  = SC.testProperty label $ SC.over (vector "X") test
-  where test :: Some Vector Element -> Bool
-        test (Some (xs :: Vector n Element))
+  = SC.testProperty label test
+  where test :: Some Vector (Probe '[]) -> Bool
+        test (Some (xs :: Vector n (Probe '[])))
           = switchZero' @ n
               (null . toList $ xs)
               (vectorOp xs == (listOp . toList) xs)
@@ -111,32 +110,30 @@ over2 s1 s2 q = SC.over s1 (\x -> SC.over s2 (\y -> q x y))
 
 
 appendList
-  = SC.testProperty "Vector.append xs ys  vs  toList xs ++ toList ys"
-      $ over2 (vector "X") (vector "Y") test
-  where test :: Some Vector Element -> Some Vector Element -> Bool
+  = SC.testProperty "Vector.append xs ys  vs  toList xs List.++ toList ys"
+      $ over2 (taggedF "X") (taggedF "Y") test
+  where test :: Some Vector (Tagged '[]) -> Some Vector (Tagged '[]) -> Bool
         test (Some xs) (Some ys)
-          = toList (Vector.append xs ys) == toList xs ++ toList ys
+          = toList (Vector.append xs ys) == toList xs List.++ toList ys
 
 appendOperatorList
-  = SC.testProperty "xs Vector.++ ys  vs  toList xs ++ toList ys"
-      $ over2 (vector "X") (vector "Y") test
-  where test :: Some Vector Element -> Some Vector Element -> Bool
+  = SC.testProperty "xs Vector.++ ys  vs  toList xs List.++ toList ys"
+      $ over2 (taggedF"X") (taggedF"Y") test
+  where test :: Some Vector (Tagged '[]) -> Some Vector (Tagged '[]) -> Bool
         test (Some xs) (Some ys)
-          = toList (xs Vector.++ ys) == toList xs ++ toList ys
+          = toList (xs Vector.++ ys) == toList xs List.++ toList ys
 
 
 indexLengthFoldable
-  = SC.testProperty "Vector.indexLength  vs  Foldable.length"
-      $ SC.over (vector "X") test
-  where test :: Some Vector Element -> Bool
+  = SC.testProperty "Vector.indexLength  vs  Foldable.length" test
+  where test :: Some Vector (Probe '[]) -> Bool
         test (Some xs)
           = (fromIntegral . index . Vector.indexLength) xs == length xs
 
 transposeList
-  = SC.testProperty "Vector.transpose  vs  List.transpose"
-      $ SC.over (vector2 "X") test
-  where test :: Some2 Vector2 Element2 -> Bool
-        test (Some2 (Vector2 xss :: Vector2 r c Element2))
+  = SC.testProperty "Vector.transpose  vs  List.transpose" test
+  where test :: Some2 Vector2 (Probe '[]) -> Bool
+        test (Some2 (Vector2 xss :: Vector2 r c (Probe '[])))
           = let v = (fmap toList . toList . Vector.transpose) xss
                 l = (List.transpose . fmap toList . toList) xss
                 -- Vector.transpose faithfully transforms 0 rows of n columns
@@ -144,18 +141,35 @@ transposeList
                 -- tell any of the zero row values of type [[a]] apart, so
                 -- always produces []
                 emptyRows= List.genericReplicate (index' @ c) []
-             in v == l || (index' @ r == 0 && index' @ c >= 1 && v == emptyRows)
+             in v == l
+                 || (  index' @ r == 0
+                    && index' @ c >= 1
+                    && v == emptyRows
+                    )
 
 
 fromListToList
-  = SC.testProperty "Vector.fromList . toList"
-      $ SC.over (vector "X") test
-  where test :: Some Vector Element -> Bool
+  = SC.testProperty "Vector.fromList . toList" test
+  where test :: Some Vector (Probe '[]) -> Bool
         test (Some xs) = (Vector.fromList . toList) xs == Some xs
+
+fromListIndexedToList
+  = SC.testProperty "Vector.fromListIndexed . toList" test
+  where test :: Some Vector (Probe '[]) -> Bool
+        test (Some xs)
+          = (Vector.fromListIndexed (Vector.indexLength xs) . toList) xs
+             == Just xs
 
 replicateList
   = SC.testProperty "Vector.replicate  vs  List.replicate" test
   where test :: Bool -> Some Index () -> Bool
         test x (Some n)
           = toList (Vector.replicate n x)
-              == List.replicate (fromIntegral $ index n) x
+             == List.replicate (fromIntegral $ index n) x
+
+enumerateList
+  = SC.testProperty "Vector.enumerate  vs  enumFrom" test
+  where test :: Some Index () -> Probe '[Enum] -> Bool
+        test (Some n) start
+          = toList (Vector.enumerate n start)
+             == List.genericTake (index n) (enumFrom start)
