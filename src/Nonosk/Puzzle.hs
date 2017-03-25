@@ -25,7 +25,7 @@
            , AllowAmbiguousTypes
   #-}
 
-module Skapix.Puzzle
+module Nonosk.Puzzle
 where
 
 import Control.Applicative ( Alternative ((<|>), empty) )
