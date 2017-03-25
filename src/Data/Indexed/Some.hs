@@ -34,11 +34,11 @@ import Data.Proxy ( Proxy (Proxy) )
 
 import Data.Semigroup ( (<>) )
 
-import GHC.Natural ( Natural )
-
 import GHC.TypeLits ( SomeNat (SomeNat)
                     , someNatVal
                     )
+
+import Numeric.Natural ( Natural )
 
 
 import Data.Indexed.Nat ( Nat, KnownNat

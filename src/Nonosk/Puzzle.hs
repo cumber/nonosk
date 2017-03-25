@@ -44,7 +44,7 @@ import Data.Constraint ( (:-) (Sub)
 
 import Data.List ( unfoldr )
 
-import GHC.Natural ( Natural )
+import Numeric.Natural ( Natural )
 
 
 import Data.Indexed.Capped ( Capped

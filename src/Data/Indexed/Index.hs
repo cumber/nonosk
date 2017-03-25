@@ -40,9 +40,9 @@ import Data.Type.Equality ( (:~:) (Refl) )
 
 import GHC.Prim ( proxy# )
 
-import GHC.Natural ( Natural )
-
 import GHC.TypeLits ( natVal' )
+
+import Numeric.Natural ( Natural )
 
 import Unsafe.Coerce ( unsafeCoerce )
 

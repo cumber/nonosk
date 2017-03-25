@@ -17,7 +17,7 @@ import Data.Constraint ( Constraint )
 
 import Data.Kind ( Type )
 
-import GHC.Natural ( Natural )
+import Numeric.Natural ( Natural )
 
 
 data family Probe (cs :: [Type -> Constraint])
