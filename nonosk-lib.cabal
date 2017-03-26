@@ -75,3 +75,15 @@ test-suite tests
                -Wmissing-exported-signatures
                -Wno-unticked-promoted-constructors
                -Wno-orphans
+
+executable solver
+  main-is: solver.hs
+  default-language: Haskell2010
+  build-depends: base
+               , bytestring
+               , nonosk-lib
+  ghc-options: -Wall
+               -Wmissing-exported-signatures
+               -Wno-unticked-promoted-constructors
+
+               -O2

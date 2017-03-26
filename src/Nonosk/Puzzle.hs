@@ -44,6 +44,7 @@ module Nonosk.Puzzle
 
   , initPuzzle
   , solvePuzzle
+  , solvePuzzleSteps
   , inferGrid
   , inferLine
   , possibleLines
@@ -116,6 +117,8 @@ import qualified Data.Indexed.Vector as Vector
 import Data.Indexed.Vector2 ( Vector2 (Vector2) )
 import qualified Data.Indexed.Vector2 as Vector2
 
+
+import Debug.Trace
 
 -- | A Hint identifies a run of cells filled with a constant value.
 data Hint n a
@@ -313,6 +316,12 @@ safeLast (x : xs) = Just $ go x xs
         go _ (y : ys) = go y ys
 
 
+solvePuzzleSteps :: (KnownNat r, KnownNat c, Eq a)
+                 => Puzzle r c a -> [GridKnowledge r c a]
+solvePuzzleSteps p
+  = inferGrid (rowSpecs p) (colSpecs p) (puzzleGrid p)
+
+
 inferGrid :: (KnownNat r, KnownNat c, Eq a)
             =>    Vector r (LineSpec c a)
                -> Vector c (LineSpec r a)
@@ -331,7 +340,7 @@ inferGrid rSpecs cSpecs
                                  | otherwise  -> gs
                   raiseOrStop g
                     | threshold > maxLinePriority rSpecs cSpecs g  = []
-                    | otherwise = raiseThresholdAfterDup f (threshold * 2) g
+                    | otherwise = raiseThresholdAfterDup f (traceShowId $ threshold * 2) g
 
 
 maxLinePriority rSpecs cSpecs grid
