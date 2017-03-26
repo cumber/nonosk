@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
-{-# LANGUAGE DataKinds
+{-# LANGUAGE BangPatterns
+           , DataKinds
            , FlexibleContexts
            , FlexibleInstances
            , GADTs
@@ -14,6 +15,7 @@ module Data.Indexed.SumList
   ( SumList (..)
   , toListWith
   , fromSomeList
+  , sumLength
   )
 where
 
@@ -110,3 +112,10 @@ fromSomeList :: [Some f a] -> Some (SumList f) a
 fromSomeList [] = Some EmptySum
 fromSomeList (Some x : xs)
   = forSome (Some . (x :+)) $ fromSomeList xs
+
+
+sumLength :: SumList f sum a -> Int
+sumLength = go 0
+  where go :: Int -> SumList f sum a -> Int
+        go !acc EmptySum = acc
+        go !acc (_ :+ xs) = go (acc + 1) xs
