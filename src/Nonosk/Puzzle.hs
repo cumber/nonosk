@@ -26,6 +26,35 @@
   #-}
 
 module Nonosk.Puzzle
+  ( Cell (..), Cell'
+  , maybeCell
+  , withCell
+  , Knowledge (..)
+  , maybeKnowledge
+  , withKnowledge
+  , Hint (..)
+  , value
+  , run
+  , makeHint
+  , someHint
+  , Hints
+  , Line, Line', LineKnowledge, LineKnowledge'
+  , Grid, GridKnowledge
+  , Puzzle
+
+  , initPuzzle
+  , solvePuzzle
+  , inferGrid
+  , inferLine
+  , possibleLines
+
+  , cellToAscii
+  , asciiToCell
+  , gridToAscii
+  , gridToAsciiLines
+  , asciiToGrid
+  , asciiLinesToGrid
+  )
 where
 
 import Control.Applicative ( Alternative ((<|>), empty) )
@@ -41,6 +70,10 @@ import Data.Constraint ( (:-) (Sub)
                        , Dict (Dict)
                        , (\\)
                        )
+
+import Data.Foldable ( foldl' )
+
+import Data.Function.Memoize ( memoFix2 )
 
 import Data.List ( unfoldr )
 
@@ -58,6 +91,7 @@ import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex (instAnyKnownIndex)
                                      )
 
 import Data.Indexed.Index ( Index (Index)
+                          , index
                           , index'
                           , switchZero
                           )
@@ -214,10 +248,17 @@ sequenceA2 :: (Traversable s, Traversable t, Applicative f)
 sequenceA2 = sequenceA . fmap sequenceA
 
 
+data LineSpec lineLen a
+  = LineSpec { _lineHints :: CappedHints lineLen (Cell a)
+             , _lineChoices :: Integer
+             }
+  deriving (Functor, Show)
+Lens.makeLenses ''LineSpec
+
 data Puzzle :: Nat -> Nat -> * -> *
-  where Puzzle     :: { grid :: GridKnowledge r c a
-                      , rowHints :: Vector r (CappedHints c (Cell a))
-                      , colHints :: Vector c (CappedHints r (Cell a))
+  where Puzzle     :: { puzzleGrid :: GridKnowledge r c a
+                      , rowSpecs :: Vector r (LineSpec c a)
+                      , colSpecs :: Vector c (LineSpec r a)
                       } -> Puzzle r c a
 
 deriving instance Functor (Puzzle r c)
@@ -236,8 +277,8 @@ initPuzzle extRowHints extColHints
            -> let rows' = sequenceA $ fmap tryCap rows
                   cols' = sequenceA $ fmap tryCap cols
               in  Some2 <$> (Puzzle <$> pure (Vector2.replicate' Unknown)
-                                    <*> rows'
-                                    <*> cols'
+                                    <*> (fmap . fmap) makeLineSpec rows'
+                                    <*> (fmap . fmap) makeLineSpec cols'
                             )
 
 
@@ -259,8 +300,8 @@ vecSumFromLists = Vector.fromList . fmap SumList.fromSomeList
 solvePuzzle :: (KnownNat r, KnownNat c, Eq a)
             => Puzzle r c a -> Maybe (Grid r c a)
 solvePuzzle puzzle
-  = let finalGrid = safeLast . inferGrid (rowHints puzzle) (colHints puzzle)
-                             $ (grid puzzle)
+  = let finalGrid = safeLast . inferGrid (rowSpecs puzzle) (colSpecs puzzle)
+                             $ (puzzleGrid puzzle)
         checkSolved = sequenceA . fmap (withKnowledge Nothing Just)
      in checkSolved =<< finalGrid
 
@@ -273,11 +314,31 @@ safeLast (x : xs) = Just $ go x xs
 
 
 inferGrid :: (KnownNat r, KnownNat c, Eq a)
-            =>    Vector r (CappedHints c (Cell a))
-               -> Vector c (CappedHints r (Cell a))
+            =>    Vector r (LineSpec c a)
+               -> Vector c (LineSpec r a)
                -> GridKnowledge r c a -> [GridKnowledge r c a]
-inferGrid rHints cHints
-  = takeUntilDup . iterateMaybe (inferRows rHints <=< inferColumns cHints)
+inferGrid rSpecs cSpecs
+  = raiseThresholdAfterDup (iterateMaybe . doStep) 2000
+  where doStep t = inferRows rSpecs t <=< inferColumns cSpecs t
+
+        raiseThresholdAfterDup f threshold grid
+          = foldr findDup [] (f threshold grid)
+            where findDup g gs
+                    = g : case gs
+                            of [] -> []
+                               (g' : _)
+                                 | g == g'    -> raiseOrStop g
+                                 | otherwise  -> gs
+                  raiseOrStop g
+                    | threshold > maxLinePriority rSpecs cSpecs g  = []
+                    | otherwise = raiseThresholdAfterDup f (threshold * 2) g
+
+
+maxLinePriority rSpecs cSpecs grid
+  = max (maxRowPriority rSpecs $ Vector2.toVectors grid)
+        (maxRowPriority cSpecs . Vector2.toVectors . Vector2.transpose $ grid)
+  where maxRowPriority
+          = maximum .: Vector.zipWith linePriority . fmap _lineChoices
 
 
 iterateMaybe :: (a -> Maybe a) -> a -> [a]
@@ -285,39 +346,78 @@ iterateMaybe f = unfoldr (fmap dup . f)
   where dup x = (x, x)
 
 
-takeUntilDup :: Eq a => [a] -> [a]
-takeUntilDup [] = []
-takeUntilDup (x : xs) = x : go x xs
-  where go _ [] = []
-        go prev (y : ys)
-          | prev == y  = []
-          | otherwise  = y : go y ys
-
-
 inferRows :: (KnownNat c, Eq a)
-          =>    Vector r (CappedHints c (Cell a))
+          =>    Vector r (LineSpec c a)
+             -> Integer
              -> GridKnowledge r c a
              -> Maybe (GridKnowledge r c a)
-inferRows hints
-  = fmap Vector2 . sequenceA . Vector.zipWith inferLine hints . Vector2.toVectors
+inferRows hints threshold
+  = ( fmap Vector2
+    . sequenceA
+    . Vector.zipWith (inferLine threshold) hints
+    . Vector2.toVectors
+    )
 
 
 inferColumns :: (KnownNat r, KnownNat c, Eq a)
-             =>    Vector c (CappedHints r (Cell a))
+             =>    Vector c (LineSpec r a)
+                -> Integer
                 -> GridKnowledge r c a
                 -> Maybe (GridKnowledge r c a)
-inferColumns hints = fmap Vector2.transpose . inferRows hints . Vector2.transpose
+inferColumns hints threshold
+  = fmap Vector2.transpose . inferRows hints threshold . Vector2.transpose
 
 
 inferLine :: (KnownNat lineLen, Eq a)
-          =>    CappedHints lineLen (Cell a)
+          =>    Integer
+             -> LineSpec lineLen a
              -> LineKnowledge lineLen a
              -> Maybe (LineKnowledge lineLen a)
-inferLine = possibleLinesToKnown .: forCapped possibleLines
+inferLine threshold spec line
+  | linePriority (spec ^. lineChoices) line > threshold = Just line
+  | otherwise = go (spec ^. lineHints) line
+  where go :: (KnownNat l, Eq a)
+           => CappedHints l (Cell a) -> LineKnowledge l a
+                -> Maybe (LineKnowledge l a)
+        go = possibleLinesToKnown .: forCapped possibleLines
+
+
+countKnown :: LineKnowledge lineLen a -> Integer
+countKnown = foldl' (\count -> (count +) . withKnowledge 0 (const 1)) 0
+
+
+linePriority :: Integer -> LineKnowledge lineLen a -> Integer
+linePriority numChoices line
+  = numChoices `div` (1 + countKnown line)
 
 
 (.:) :: (c -> d) -> (a -> b -> c) -> (a -> b -> d)
 (.:) = (.) . (.)
+infixr 9 .:
+
+
+makeLineSpec :: forall lineLen a
+              . KnownNat lineLen
+             => CappedHints lineLen (Cell a) -> LineSpec lineLen a
+makeLineSpec hints
+  = LineSpec { _lineChoices
+                 = forCapped ( numPossibleLines (toInteger $ index' @ lineLen)
+                             . SumList.toListWith hintLen
+                             )
+                     hints
+             , _lineHints = hints
+             }
+  where hintLen = toInteger . index . Lens.view run
+
+numPossibleLines :: Integer -> [Integer] -> Integer
+numPossibleLines = memoFix2 go
+  where go _ remainingLineLen _
+          | remainingLineLen < 0  = 0
+        go _ _ [] = 1
+        go f remainingLineLen allHs@(h : hs)
+          = ( f (remainingLineLen - 1) allHs   -- place a blank here
+            + f (remainingLineLen - h) hs      -- place the hint here
+            )
 
 
 possibleLinesToKnown :: (KnownNat n, Eq a)

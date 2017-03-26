@@ -39,6 +39,7 @@ library
                , haskell-src-exts
                , haskell-src-meta
                , lens
+               , memoize
                , mtl
                , template-haskell
                , type-nat-solver
