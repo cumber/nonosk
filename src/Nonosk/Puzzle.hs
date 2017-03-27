@@ -67,6 +67,11 @@ import qualified Control.Lens as Lens
 
 import Control.Monad ( (<=<) )
 
+import Control.Parallel.Strategies ( parTraversable
+                                   , rseq
+                                   , withStrategy
+                                   )
+
 import Data.Constraint ( (:-) (Sub)
                        , Dict (Dict)
                        , (\\)
@@ -363,6 +368,7 @@ inferRows :: (KnownNat c, Eq a)
 inferRows hints threshold
   = ( fmap Vector2
     . sequenceA
+    . withStrategy (parTraversable . parTraversable . parTraversable $ rseq)
     . Vector.zipWith (inferLine threshold) hints
     . Vector2.toVectors
     )

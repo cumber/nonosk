@@ -41,6 +41,7 @@ library
                , lens
                , memoize
                , mtl
+               , parallel
                , template-haskell
                , type-nat-solver
   hs-source-dirs: src
@@ -87,3 +88,5 @@ executable solver
                -Wno-unticked-promoted-constructors
 
                -O2
+               -threaded
+               -with-rtsopts=-N
