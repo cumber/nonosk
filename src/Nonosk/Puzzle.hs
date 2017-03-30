@@ -229,13 +229,15 @@ type LineKnowledge' n = Vector n (Knowledge Cell')
 
 cellToAscii :: Knowledge (Cell ()) -> Char
 cellToAscii (Known Empty) = ' '
-cellToAscii (Known (Filled ())) = '#'
-cellToAscii Unknown = '?'
+cellToAscii (Known (Filled ())) = '\x2588'
+cellToAscii Unknown = '\x2591'
 
 asciiToCell :: Char -> Maybe (Knowledge (Cell ()))
 asciiToCell ' ' = Just $ Known Empty
 asciiToCell '#' = Just $ Known (Filled ())
+asciiToCell '\x2588' = Just $ Known (Filled ())
 asciiToCell '?' = Just Unknown
+asciiToCell '\x2591' = Just Unknown
 asciiToCell _ = Nothing
 
 gridToAscii :: GridKnowledge r c () -> String
