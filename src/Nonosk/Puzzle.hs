@@ -43,6 +43,7 @@ module Nonosk.Puzzle
   , Puzzle
 
   , initPuzzle
+  , makePuzzle
   , solvePuzzle
   , solvePuzzleSteps
   , inferGrid
@@ -108,9 +109,10 @@ import Data.Indexed.Nat ( Nat, KnownNat
                         )
 
 import Data.Indexed.Some ( Some (Some)
-                         , Some2 (Some2)
                          , withSome
                          , someIndex
+                         , Some2 (Some2)
+                         , guessIndex2'
                          )
 
 import Data.Indexed.SumList ( SumList ((:+), EmptySum) )
@@ -287,6 +289,24 @@ initPuzzle extRowHints extColHints
            -> let rows' = sequenceA $ fmap tryCap rows
                   cols' = sequenceA $ fmap tryCap cols
               in  Some2 <$> (Puzzle <$> pure (Vector2.replicate' Unknown)
+                                    <*> (fmap . fmap) makeLineSpec rows'
+                                    <*> (fmap . fmap) makeLineSpec cols'
+                            )
+
+
+makePuzzle :: Eq a
+           =>     [[Some Hint a]]
+               -> [[Some Hint a]]
+               -> Some2 Vector2 (Knowledge (Cell a))
+               -> Maybe (Some2 Puzzle a)
+makePuzzle extRowHints extColHints extGrid
+  = case ( (vecSumFromLists $ fmap addSpacers extRowHints)
+         , (vecSumFromLists $ fmap addSpacers extColHints)
+         )
+      of (Some rows, Some cols)
+           -> let rows' = sequenceA $ fmap tryCap rows
+                  cols' = sequenceA $ fmap tryCap cols
+              in  Some2 <$> (Puzzle <$> guessIndex2' extGrid
                                     <*> (fmap . fmap) makeLineSpec rows'
                                     <*> (fmap . fmap) makeLineSpec cols'
                             )

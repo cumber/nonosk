@@ -8,9 +8,7 @@ where
 
 import Control.Arrow ( first )
 
-import Control.Monad ( (<=<)
-                     , unless
-                     )
+import Control.Monad ( (<=<) )
 
 import qualified Data.ByteString.Char8 as Char8
 
@@ -33,10 +31,13 @@ parseSimplePuzzle = parseLines . Char8.lines
 parseLines inputLines
   = do rest <- parseHeader inputLines
        (rows, rest') <- parseClues "rows" rest
-       (cols, nothing) <- parseClues "columns" rest'
-       unless (null nothing) (Left "Expected end of input after columns")
-       maybe (Left "Invalid row and column clues") Right
-         $ initPuzzle rows cols
+       (cols, rest'') <- parseClues "columns" rest'
+       if null rest''
+         then maybe (Left "Invalid row and column clues") Right
+                $ initPuzzle rows cols
+         else do grid <- parseGrid rest''
+                 maybe (Left "Invalid row and column clues or grid") Right
+                    $ makePuzzle rows cols grid
 
 
 parseHeader [] = Left "Empty input"
@@ -52,7 +53,7 @@ parseHeader (l : ls)
 
 parseClues label
   = sequenceFirst . first parseLineClues . span (startsWith isDigit)
-      <=< parseClueHeader label
+      <=< parseSectionHeader label
 
 
 parseLineClues = traverse (parseSingleLineClues . Char8.words)
@@ -79,12 +80,19 @@ nonNegative i
   | otherwise  = Just $ fromInteger i
 
 
-parseClueHeader label []
+parseSectionHeader label []
   = Left $ "Unexpected end of input; expecting section: "
              <> Char8.unpack label
-parseClueHeader label (l : ls)
+parseSectionHeader label (l : ls)
   | l == "# " <> label  = Right ls
   | otherwise           = Left $ "Unexpected input; expecting section: "
                                    <> Char8.unpack label
 
 startsWith p bs = (not . Char8.null) bs && (p . Char8.head) bs
+
+
+parseGrid = parseGrid' <=< parseSectionHeader "grid"
+  where parseGrid' = ( maybe (Left "Invalid grid") Right
+                     . asciiLinesToGrid
+                     . fmap Char8.unpack
+                     )

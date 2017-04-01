@@ -1,17 +1,21 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
-{-# LANGUAGE GADTs
+{-# LANGUAGE DataKinds
+           , GADTs
+           , KindSignatures
            , FlexibleContexts
            , RankNTypes
            , ScopedTypeVariables
            , TypeApplications
            , TypeOperators
-           , TypeInType
+           , UndecidableInstances
   #-}
 
 module Data.Indexed.Some
   ( Some (..)
   , forSome
   , withSome
+  , guessIndex
+  , guessIndex'
   , liftPlus
 
   , someIndex
@@ -19,6 +23,8 @@ module Data.Indexed.Some
   , Some2 (..)
   , forSome2
   , withSome2
+  , guessIndex2
+  , guessIndex2'
   )
 where
 
@@ -33,6 +39,8 @@ import Data.Maybe ( fromMaybe )
 import Data.Proxy ( Proxy (Proxy) )
 
 import Data.Semigroup ( (<>) )
+
+import Data.Type.Equality ( (:~:) (Refl) )
 
 import GHC.TypeLits ( SomeNat (SomeNat)
                     , someNatVal
@@ -52,6 +60,8 @@ import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex (instAnyKnownIndex)
 
 import Data.Indexed.Index ( Index (Index)
                           , withSameIndex
+                          , withIndexOf
+                          , sameIndex'
                           )
 
 
@@ -72,7 +82,7 @@ instance ForAnyKnownIndex Show f a => Show (Some f a)
 instance ForAnyKnownIndex Eq f a => Eq (Some f (a :: Type))
   where Some (xs :: f n a) == Some ys
           = fromMaybe False $ withSameIndex (==) xs ys
-                  \\ (instAnyKnownIndex :: KnownNat n :- Eq (f n a))
+              \\ (instAnyKnownIndex :: KnownNat n :- Eq (f n a))
 
 
 instance ForAnyKnownIndexF Functor f => Functor (Some f)
@@ -103,6 +113,13 @@ forSome f (Some x) = f x
 -- | Handle a @Some f a@ with a function that can handle @f n a@ for all @n@
 withSome :: Some f a -> (forall n. KnownNat n => f n a -> r) -> r
 withSome s f = forSome f s
+
+
+guessIndex :: Index n () -> Some f a -> Maybe (f n a)
+guessIndex n (Some x) = withIndexOf n id x
+
+guessIndex' :: forall n f a. KnownNat n => Some f a -> Maybe (f n a)
+guessIndex' = guessIndex Index
 
 
 liftPlus :: (forall n m. f n a -> g m b -> h (n + m) c)
@@ -143,3 +160,16 @@ withSome2 :: Some2 f a
           -> (forall n m. (KnownNat n, KnownNat m) => f n m a -> r)
           -> r
 withSome2 s f = forSome2 f s
+
+
+guessIndex2 :: forall n m f a
+              . Index n () -> Index m () -> Some2 f a -> Maybe (f n m a)
+guessIndex2 Index Index = guessIndex2'
+
+guessIndex2' :: forall n m f a
+              . (KnownNat n, KnownNat m)
+             => Some2 f a -> Maybe (f n m a)
+guessIndex2' (Some2 (x :: f n' m' a))
+  = do Refl <- sameIndex' @ n @ n'
+       Refl <- sameIndex' @ m @ m'
+       pure x
