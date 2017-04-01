@@ -1,4 +1,7 @@
-{-# OPTIONS_GHC -fplugin=TypeNatSolver #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise
+                -fplugin GHC.TypeLits.KnownNat.Solver
+                -fplugin TypeNatSolver
+  #-}
 {-# LANGUAGE AllowAmbiguousTypes
            , ConstraintKinds
            , DataKinds
@@ -19,18 +22,19 @@ module Data.Indexed.Index
   , IsZero (..)
   , index
   , index'
-  , sameIndex
-  , sameIndex'
+  , succ, pred
+  , sameIndex, sameIndex'
   , withIndexOf
   , withSameIndex
   , isZero
-  , switchZero
-  , switchZero'
+  , switchZero, switchZero'
   , IsLessOrEqual (..)
-  , orderIndex
-  , orderIndex'
+  , orderIndex, orderIndex'
+  , nTimes, nTimes'
   )
 where
+
+import Prelude hiding ( succ, pred )
 
 import Data.Constraint ( Dict (Dict)
                        , (:-) (Sub)
@@ -52,6 +56,7 @@ import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex (instAnyKnownIndex) )
 import Data.Indexed.Nat ( Nat, KnownNat
                         , type (<=), type (>=)
                         , type (>)
+                        , type (+), type (-)
                         )
 
 
@@ -77,6 +82,13 @@ instance Show (Index n ())
 
 instance ForAnyKnownIndex Show Index ()
   where instAnyKnownIndex = Sub Dict
+
+
+succ :: Index n () -> Index (n + 1) ()
+succ Index = Index
+
+pred :: (n >= 1) => Index n () -> Index (n - 1) ()
+pred Index = Index
 
 
 sameIndex :: Index n () -> Index m () -> Maybe (n :~: m)
@@ -152,3 +164,19 @@ orderIndex'
   | otherwise
     = case unsafeCoerce (Dict :: Dict (1 > 0))
         of (Dict :: Dict (n > m)) -> GreaterThan
+
+
+nTimes :: forall count f n a
+        .    Index count ()
+          -> (forall m. f m a -> f (m + 1) a)
+          -> f n a
+          -> f (n + count) a
+nTimes i f x
+  = switchZero i x (nTimes (pred i) f (f x))
+
+nTimes' :: forall count f n a
+         . KnownNat count
+        =>    (forall m. f m a -> f (m + 1) a)
+           -> f n a
+           -> f (n + count) a
+nTimes' = nTimes Index

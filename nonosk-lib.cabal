@@ -22,6 +22,7 @@ library
                    Data.Indexed.Some
                    Data.Indexed.SumList
                    Data.Indexed.SumList.QQ
+                   Data.Indexed.Trie
                    Data.Indexed.Vector
                    Data.Indexed.Vector2
                    Data.Indexed.Vector.QQ
