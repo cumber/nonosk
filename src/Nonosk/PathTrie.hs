@@ -13,7 +13,7 @@
            , TypeApplications
            , TypeOperators
   #-}
-module Data.Indexed.Trie
+module Nonosk.PathTrie
   ( PathTrie (..)
   , Link (..)
   , completePaths

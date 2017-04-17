@@ -15,6 +15,7 @@ cabal-version: >=1.10
 library
   exposed-modules: Nonosk.Puzzle
                    Nonosk.FileFormats
+                   Nonosk.PathTrie
                    Data.Indexed.Capped
                    Data.Indexed.ForAnyKnownIndex
                    Data.Indexed.Index
@@ -22,7 +23,6 @@ library
                    Data.Indexed.Some
                    Data.Indexed.SumList
                    Data.Indexed.SumList.QQ
-                   Data.Indexed.Trie
                    Data.Indexed.Vector
                    Data.Indexed.Vector2
                    Data.Indexed.Vector.QQ
