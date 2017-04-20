@@ -100,7 +100,7 @@ import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex (instAnyKnownIndex)
 import Data.Indexed.Index ( Index (Index)
                           , index
                           , index'
-                          , switchZero
+                          , switchZero'
                           )
 
 import Data.Indexed.Nat ( Nat, KnownNat
@@ -125,7 +125,11 @@ import Data.Indexed.Vector2 ( Vector2 (Vector2) )
 import qualified Data.Indexed.Vector2 as Vector2
 
 
-import Debug.Trace
+import Nonosk.PathTrie ( PathTrie ( Fork )
+                       , Link ((:-->))
+                       )
+import qualified Nonosk.PathTrie as PathTrie
+
 
 -- | A Hint identifies a run of cells filled with a constant value.
 data Hint n a
@@ -367,7 +371,7 @@ inferGrid rSpecs cSpecs
                                  | otherwise  -> gs
                   raiseOrStop g
                     | threshold > maxLinePriority rSpecs cSpecs g  = []
-                    | otherwise = raiseThresholdAfterDup f (traceShowId $ threshold * 2) g
+                    | otherwise = raiseThresholdAfterDup f (threshold * 2) g
 
 
 maxLinePriority rSpecs cSpecs grid
@@ -488,7 +492,7 @@ possibleLines allHints@(hint :+ hints) line
   = possibleLinesWithHint hint hints line
     <|> if hint ^. value == Empty
           then []
-          else switchZero (Index @ (lineLen - totalHintsLen)) []
+          else switchZero' @ (lineLen - totalHintsLen) []
                  (possibleLinesWithHint (Hint @1 Empty) allHints line)
 
 
@@ -533,3 +537,44 @@ withMatchingHint hint line matchCont
      in if any (can'tMatch (hint ^. value)) block
           then  empty
           else  matchCont rest
+
+
+linePaths :: (KnownNat lineLen, Eq a)
+          =>    CappedHints lineLen (Cell a)
+             -> PathTrie lineLen (Cell a)
+linePaths = forCapped pathsFromHints
+
+
+pathsFromHints :: forall lineLen hintsLen a
+                . ( KnownNat hintsLen
+                  , KnownNat lineLen
+                  , hintsLen <= lineLen
+                  , Eq a
+                  )
+               =>    Hints hintsLen (Cell a)
+                  -> PathTrie lineLen (Cell a)
+pathsFromHints EmptySum = pure Empty
+pathsFromHints allHints@(hint :+ restHints)
+  = pathsFollowingHint hint restHints
+    <|> switchZero' @ (lineLen - hintsLen)
+          empty
+          ( case hint ^. value
+              of Empty -> empty
+                 _     -> Fork [Empty :--> pathsFromHints allHints]
+          )
+
+
+pathsFollowingHint :: forall hintLen restHintsLen lineLen a
+                    . ( KnownNat lineLen
+                      , KnownNat (hintLen + restHintsLen)
+                      , (hintLen + restHintsLen) <= lineLen
+                      , Eq a
+                      )
+                   => (  Hint hintLen (Cell a)
+                      -> Hints restHintsLen (Cell a)
+                      -> PathTrie lineLen (Cell a)
+                      )
+pathsFollowingHint hint hints
+  = PathTrie.repeatAndThen (hint ^. run) (hint ^. value)
+      $ pathsFromHints @ (lineLen - hintLen) hints
+          \\ restHintsLenKnownNat hint hints

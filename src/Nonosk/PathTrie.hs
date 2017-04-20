@@ -16,10 +16,14 @@
 module Nonosk.PathTrie
   ( PathTrie (..)
   , Link (..)
+  , extend
+  , repeatAndThen
+  , repeatAndThen'
   , completePaths
   , incompletePaths
   , isEmpty
   , prune
+  , prune'
   , checkPrefixesWithinChoiceDepth
   , removeDeadEndsWithinChoiceDepth
   )
@@ -47,6 +51,7 @@ import Data.Indexed.Vector ( Vector ((:^), Nil) )
 
 data Link n a = a :--> PathTrie (n - 1) a
   deriving (Show, Eq, Functor)
+infix 4 :-->
 
 
 data PathTrie n a
@@ -59,10 +64,7 @@ deriving instance Functor (PathTrie n)
 
 
 instance KnownNat n => Applicative (PathTrie n)
-  where pure x
-          = switchZero' @ n
-              Complete
-              (Fork [x :--> (pure x)])
+  where pure x = repeatAndThen' x Complete
 
         (<*>) = switchZero' @ n
                   apComplete
@@ -88,6 +90,21 @@ instance KnownNat n => Alternative (PathTrie n)
 
         Fork xs <|> Fork ys = Fork (xs <> ys)
         Complete <|> Complete = Complete
+
+
+extend :: PathTrie n a -> PathTrie m a -> PathTrie (n + m) a
+Complete `extend` ys = ys
+Fork lxs `extend` ys = Fork $ fmap (\(x :--> xs) -> x :--> xs `extend` ys) lxs
+
+
+repeatAndThen :: Index n () -> a -> PathTrie m a -> PathTrie (n + m) a
+repeatAndThen Index = repeatAndThen'
+
+repeatAndThen' :: forall n m a. KnownNat n => a -> PathTrie m a -> PathTrie (n + m) a
+repeatAndThen' x ys
+  = switchZero' @ n
+      ys
+      (Fork [x :--> repeatAndThen' x ys])
 
 
 completePaths :: PathTrie n a -> [Vector n a]
