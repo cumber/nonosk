@@ -84,6 +84,8 @@ import Data.Function.Memoize ( memoFix2 )
 
 import Data.List ( unfoldr )
 
+import Data.Semigroup ( Semigroup ((<>)) )
+
 import Numeric.Natural ( Natural )
 
 
@@ -212,6 +214,15 @@ maybeKnowledge :: Lens.Iso' (Maybe a) (Knowledge a)
 maybeKnowledge = Lens.iso forward backward
   where forward = maybe Unknown Known
         backward = withKnowledge Nothing Just
+
+instance Eq a => Semigroup (Knowledge a)
+  where z@(Known x) <> Known y
+          | x == y  = z
+        _ <> _ = Unknown
+
+instance Eq a => Monoid (Knowledge a)
+  where mappend = (<>)
+        mempty = Unknown
 
 
 -- | A Line is a 'Vector' of 'Cell's
