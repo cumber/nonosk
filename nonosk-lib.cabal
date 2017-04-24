@@ -16,6 +16,7 @@ library
   exposed-modules: Nonosk.Puzzle
                    Nonosk.FileFormats
                    Nonosk.PathTrie
+                   Nonosk.PosSet
                    Data.Indexed.Capped
                    Data.Indexed.Fin
                    Data.Indexed.ForAnyKnownIndex
@@ -34,6 +35,7 @@ library
   build-depends: base ==4.9.*
                , bytestring
                , constraints
+               , containers
                , equational-reasoning
                , ghc-prim
                , ghc-typelits-knownnat
