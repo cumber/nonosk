@@ -20,8 +20,8 @@
 module Data.Indexed.Index
   ( Index (..)
   , IsZero (..)
-  , index
-  , index'
+  , index, index'
+  , indexOf
   , succ, pred
   , sameIndex, sameIndex'
   , withIndexOf
@@ -70,6 +70,9 @@ index Index = index' @ n
 
 index' :: forall n. KnownNat n => Natural
 index' = fromIntegral $ natVal' (proxy# @ Nat @ n)
+
+indexOf :: KnownNat n => f n a -> Index n ()
+indexOf _ = Index
 
 
 instance Show (Index n ())

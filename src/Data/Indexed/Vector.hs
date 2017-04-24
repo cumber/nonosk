@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# LANGUAGE GADTs
            , DataKinds
            , DeriveFunctor
@@ -12,8 +14,6 @@
            , TypeFamilies
            , TypeOperators
   #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 
 module Data.Indexed.Vector
   ( Vector (Nil, (:^), (:^-))
@@ -22,6 +22,8 @@ module Data.Indexed.Vector
   , append
   , (++)
 
+  , elemAt
+  , (!)
   , head
   , last
   , tail
@@ -29,9 +31,11 @@ module Data.Indexed.Vector
   , uncons
 
   , indexLength
+  , length
 
   -- * Vector transformations
   , transpose
+  , mapWithIndices
 
   -- * Building vectors
   , fromList
@@ -51,22 +55,20 @@ module Data.Indexed.Vector
 
   -- * Zipping and unzipping vectors
   , zipWith
+  , unzip
   )
 where
 
-import Prelude ( Functor (..), (<$>)
-               , Applicative (..)
-               , Monad (..)
-               , Show (..), showsPrec
-               , Eq (..)
-               , Ord (..)
-               , Enum (..)
-               , Integral (..)
-               , Traversable (..)
-               , ($), (.), id
-               , fst, snd
-               , Maybe (Just, Nothing)
-               )
+import Prelude hiding ( head, last
+                      , tail, init
+                      , take, drop
+                      , length
+                      , replicate
+                      , splitAt
+                      , (++)
+                      , unzip
+                      , zipWith
+                      )
 
 import Data.Constraint ( Dict (Dict)
                        , (:-) (Sub)
@@ -74,7 +76,7 @@ import Data.Constraint ( Dict (Dict)
                        )
 import Data.Constraint.Nat ( leTrans )
 
-import Data.Foldable ( Foldable (..) )
+import Data.Foldable ( toList )
 
 import Data.Monoid ( Monoid (..) )
 import Data.Semigroup ( Semigroup ((<>)) )
@@ -82,11 +84,17 @@ import Data.Semigroup ( Semigroup ((<>)) )
 import qualified GHC.Exts as Exts
 
 
+import Data.Indexed.Fin ( Fin
+                        , fromFin
+                        )
+
 import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex (instAnyKnownIndex)
                                      , ForAnyKnownIndexF (instAnyKnownIndexF)
                                      )
 
 import Data.Indexed.Index ( Index (Index)
+                          , index'
+                          , indexOf
                           , switchZero'
                           )
 import Data.Indexed.Some ( Some (Some)
@@ -94,11 +102,9 @@ import Data.Indexed.Some ( Some (Some)
                          )
 
 import Data.Indexed.Nat ( KnownNat
-                        , type (+), type (-)
-                        , type (<=)
+                        , type (+), type (-), type (×)
+                        , type (<=), type (>=)
                         )
--- * as unqualified operator confuses haskell-src-exts, so Nat.*
-import qualified Data.Indexed.Nat as Nat
 
 import Data.Indexed.Util.ShowsListLike ( showsListLike )
 import Data.Indexed.Util.NatProofs ( minusMonotone1 )
@@ -118,7 +124,7 @@ Sometimes its more convenient to instead work with the tail as @Vector n1 a@,
 where @n1 ~ (n - 1)@. The two are of course equivalent but the compiler doesn't
 always realise this without an explicit demonstration.
 -}
-pattern (:^-) :: () => (1 <= n) => a -> Vector (n - 1) a -> Vector n a
+pattern (:^-) :: () => (n >= 1) => a -> Vector (n - 1) a -> Vector n a
 pattern x :^- xs = x :^ xs
 infixr 5 :^-
 
@@ -223,7 +229,7 @@ fromListIndexed'
   where mustBeEmpty []      = Just Nil
         mustBeEmpty (_ : _) = Nothing
 
-        oneMore :: forall m b. (KnownNat m, 1 <= m) => [b] -> Maybe (Vector m b)
+        oneMore :: forall m b. (KnownNat m, m >= 1) => [b] -> Maybe (Vector m b)
         oneMore [] = Nothing
         oneMore (x : xs) = (x :^) <$> fromListIndexed' @ (m - 1) xs
 
@@ -234,15 +240,35 @@ instance Exts.IsList (Some Vector a)
         toList = toList
 
 
-fromIndices' :: (KnownNat n, Integral i) => (i -> a) -> Vector n a
-fromIndices' gen = gen <$> enumerate' 0
+fromIndices' :: (KnownNat n, Integral i) => (Fin n i -> a) -> Vector n a
+fromIndices' gen = gen <$> enumerate'
 
-fromIndices :: Integral i => Index n () -> (i -> a) -> Vector n a
+fromIndices :: Integral i => Index n () -> (Fin n i -> a) -> Vector n a
 fromIndices Index = fromIndices'
 
 
+mapWithIndices :: (KnownNat n, Integral i)
+               => (Fin n i -> a -> b) -> (Vector n a -> Vector n b)
+mapWithIndices = flip zipWith enumerate'
+
+
+
 indexLength :: KnownNat n => Vector n a -> Index n ()
-indexLength _ = Index
+indexLength = indexOf
+
+{-|
+Note that the 'length' from the 'Foldable' instance for 'Vector' (and thus also
+for 'Some' 'Vector') obtains the length by direct measurement (traversal). This
+function instead just converts the type index directly to value, which is a
+constant time instead of linear cost.
+
+It does require a 'KnownNat' constraint on the length, howver, which is why the
+'length' in the 'Foldable' instance does not use this strategy; it would require
+the 'Foldable' instance to have a 'KnownNat n' constraint, which would infect
+many other operations that otherwise do not need it.
+-}
+length :: forall a n. (KnownNat n, Integral a) => Vector n a -> a
+length _ = fromIntegral $ index' @ n
 
 
 append :: Vector n a -> Vector m a -> Vector (n + m) a
@@ -258,7 +284,14 @@ zipWith _ Nil _ = Nil
 zipWith f (x :^ xs) (y :^ ys) = f x y :^ zipWith f xs ys
 
 
-crossWith :: (a -> b -> c) -> Vector n a -> Vector m b -> Vector (n Nat.* m) c
+unzip :: Vector n (a, b) -> (Vector n a, Vector n b)
+unzip Nil = (Nil, Nil)
+unzip ((x, y) :^ xys)
+  = case unzip xys
+      of ~(xs, ys) -> (x :^ xs, y :^ ys)
+
+
+crossWith :: (a -> b -> c) -> Vector n a -> Vector m b -> Vector (n × m) c
 crossWith _ Nil _ = Nil
 crossWith f (x :^ xs) ys = (f x <$> ys) ++ crossWith f xs ys
 
@@ -274,33 +307,49 @@ replicate :: Index n () -> a -> Vector n a
 replicate Index = replicate'
 
 
-enumerate' :: forall n a. (KnownNat n, Enum a) => a -> Vector n a
-enumerate' x
-  = switchZero' @ n Nil (x :^ enumerate' @ (n - 1) (succ x))
+enumerate' :: forall n a. (KnownNat n, Integral a) => Vector n (Fin n a)
+enumerate'
+  = switchZero' @ n
+      Nil
+      (go @ n minBound)
+  where go :: forall m. KnownNat m => Fin n a -> Vector m (Fin n a)
+        go x = switchZero' @ m
+                 Nil
+                 (x :^ go @ (m - 1) (succ x))
 
-enumerate :: Enum a => Index n () -> a -> Vector n a
+enumerate :: Integral a => Index n () -> Vector n (Fin n a)
 enumerate Index = enumerate'
 
 
-head :: (1 <= n) => Vector n a -> a
+elemAt :: (n >= 1, Integral i) => Fin n i -> Vector n a -> a
+elemAt = go . fromFin
+  where go :: Integral i => i -> Vector n a -> a
+        go i (x :^ xs)
+          | i == 0     = x
+          | otherwise  = go (pred i) xs
+
+(!) :: (n >= 1, Integral i) => Vector n a -> Fin n i -> a
+(!) = flip elemAt
+
+head :: (n >= 1) => Vector n a -> a
 head (x :^ _) = x
 
-last :: (1 <= n) => Vector n a -> a
+last :: (n >= 1) => Vector n a -> a
 last (x :^ xs) = go x xs
   where go :: a -> Vector n a -> a
         go y Nil = y
         go _ (y :^ ys) = go y ys
 
-tail :: (1 <= n) => Vector n a -> Vector (n - 1) a
+tail :: (n >= 1) => Vector n a -> Vector (n - 1) a
 tail (_ :^ xs) = xs
 
-init :: (1 <= n) => Vector n a -> Vector (n - 1) a
+init :: (n >= 1) => Vector n a -> Vector (n - 1) a
 init (x :^ xs) = go x xs
   where go :: a -> Vector n a -> Vector n a
         go _ Nil = Nil
         go y (y' :^ ys) = y :^ go y' ys
 
-uncons :: (1 <= n) => Vector n a -> (a, Vector (n - 1) a)
+uncons :: (n >= 1) => Vector n a -> (a, Vector (n - 1) a)
 uncons xs = (head xs, tail xs)
 
 
