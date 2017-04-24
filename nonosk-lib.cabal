@@ -81,6 +81,10 @@ test-suite tests
                -Wno-unticked-promoted-constructors
                -Wno-orphans
 
+               -O2
+               -threaded
+               -with-rtsopts=-N
+
 executable solver
   main-is: solver.hs
   default-language: Haskell2010
