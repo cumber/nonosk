@@ -2,7 +2,10 @@
            , FlexibleContexts
            , FlexibleInstances
            , MultiParamTypeClasses
+           , ScopedTypeVariables
            , TypeInType
+           , TypeOperators
+           , UndecidableInstances
   #-}
 
 module Scaffolding.SmallCheck
@@ -20,6 +23,11 @@ import Test.SmallCheck.Series ( Serial (series)
 import Scaffolding.Probe ( Probe (Probe, ProbeEnum)
                          , Tagged (Tagged)
                          )
+
+import Scaffolding.TypeChoice ( TypeChoice
+                              , Choosable
+                              , choices
+                              )
 
 import Data.Indexed.Fin ( fromFin )
 
@@ -69,3 +77,7 @@ instance Monad m => Serial m (Some2 Vector2 (Probe '[]))
 
 instance Monad m => Serial m (Probe '[Enum])
   where series = ProbeEnum <$> series
+
+
+instance (Monad m, Choosable c ts) => Serial m (TypeChoice c ts)
+  where series = generate (`take` choices)
