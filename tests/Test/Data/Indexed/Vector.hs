@@ -23,6 +23,8 @@ import Test.Tasty ( TestTree
 import qualified Test.Tasty.SmallCheck as SC
 
 
+import Data.Indexed.Fin ( fromFin )
+
 import Data.Indexed.Index ( Index
                           , index
                           , index'
@@ -118,7 +120,7 @@ appendList
 
 appendOperatorList
   = SC.testProperty "xs Vector.++ ys  vs  toList xs List.++ toList ys"
-      $ over2 (taggedF"X") (taggedF"Y") test
+      $ over2 (taggedF "X") (taggedF "Y") test
   where test :: Some Vector (Tagged '[]) -> Some Vector (Tagged '[]) -> Bool
         test (Some xs) (Some ys)
           = toList (xs Vector.++ ys) == toList xs List.++ toList ys
@@ -167,9 +169,10 @@ replicateList
           = toList (Vector.replicate n x)
              == List.replicate (fromIntegral $ index n) x
 
+
 enumerateList
-  = SC.testProperty "Vector.enumerate  vs  enumFrom" test
-  where test :: Some Index () -> Probe '[Enum] -> Bool
-        test (Some n) start
-          = toList (Vector.enumerate n start)
-             == List.genericTake (index n) (enumFrom start)
+  = SC.testProperty "Vector.enumerate  vs  [0 ..]" test
+  where test :: Some Index () -> Bool
+        test (Some n)
+          = toList (fromFin <$> Vector.enumerate n)
+             == List.genericTake (index n) [0 :: Int ..]

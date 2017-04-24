@@ -21,6 +21,8 @@ import Scaffolding.Probe ( Probe (Probe, ProbeEnum)
                          , Tagged (Tagged)
                          )
 
+import Data.Indexed.Fin ( fromFin )
+
 import Data.Indexed.Index ( Index
                           , index
                           )
@@ -52,12 +54,14 @@ instance Monad m => Serial m (Some Index ())
 
 
 instance Monad m => Serial m (Some Vector (Probe '[]))
-  where series = forSome (\i -> Some $ Vector.fromIndices i Probe) <$> series
+  where series = forSome (\i -> Some $ Vector.fromIndices i (Probe . fromFin))
+                   <$> series
 
 instance Monad m => Serial m (Some2 Vector2 (Probe '[]))
   where series
           = let makeRow len r = Vector.fromIndices len (Probe . pos len r)
-                pos rowLenIndex rowNo c = index rowLenIndex * rowNo + c
+                pos rowLenIndex rowNo c
+                  = index rowLenIndex * (fromFin rowNo + fromFin c)
                 makeVectors (Some rows, Some cols)
                   = Some2 . Vector2 $ Vector.fromIndices rows (makeRow cols)
              in makeVectors <$> series
