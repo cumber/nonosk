@@ -4,14 +4,21 @@ where
 
 import Test.Tasty ( TestTree
                   , testGroup
-                  , defaultMain
+                  , defaultMainWithIngredients
+                  , defaultIngredients
                   )
+
+import Test.Tasty.Runners.Html ( htmlRunner )
+
+import Test.Tasty.Ingredients.Rerun ( rerunningTests )
 
 
 import qualified Test.Data.Indexed.Vector as Vector
 
 main :: IO ()
-main = defaultMain tests
+main = defaultMainWithIngredients
+         [ rerunningTests $ htmlRunner : defaultIngredients ]
+         tests
 
 tests :: TestTree
 tests = testGroup "All" [ Vector.tests

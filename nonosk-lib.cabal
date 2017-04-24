@@ -74,8 +74,6 @@ test-suite tests
                , tasty-rerun
                , tasty-smallcheck
                , smallcheck
-               , QuickCheck
-               , generic-random
   ghc-options: -Wall
                -Wmissing-exported-signatures
                -Wno-unticked-promoted-constructors
