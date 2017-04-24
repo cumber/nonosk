@@ -1,9 +1,12 @@
+{-# OPTIONS_GHC -fplugin TypeNatSolver #-}
 {-# LANGUAGE DataKinds
+           , FlexibleInstances
            , RankNTypes
            , ScopedTypeVariables
            , TypeApplications
            , TypeFamilies
            , TypeOperators
+           , UndecidableInstances
   #-}
 
 module Test.Data.Indexed.Vector
@@ -12,9 +15,22 @@ where
 
 import Control.Arrow ( second )
 
+import Control.Exception ( catch
+                         , ErrorCall (ErrorCallWithLocation)
+                         )
+
 import Data.Foldable ( toList )
 
+import Data.Int ( Int8, Int16 )
+import Data.Word ( Word8, Word16 )
+
 import qualified Data.List as List
+
+import Data.Proxy ( Proxy (Proxy)
+                  , asProxyTypeOf
+                  )
+
+import Numeric.Natural ( Natural )
 
 import Test.Tasty ( TestTree
                   , testGroup
@@ -30,6 +46,7 @@ import Data.Indexed.Index ( Index
                           , index'
                           , switchZero'
                           )
+import qualified Data.Indexed.Index as Index
 
 import Data.Indexed.Nat ( KnownNat
                         , type (>=)
@@ -37,6 +54,8 @@ import Data.Indexed.Nat ( KnownNat
 
 import Data.Indexed.Some ( Some (Some)
                          , Some2 (Some2)
+                         , withSome
+                         , someIndex
                          )
 
 import Data.Indexed.Vector ( Vector )
@@ -48,6 +67,7 @@ import Scaffolding.SmallCheck ( taggedF )
 import Scaffolding.Probe ( Probe
                          , Tagged
                          )
+import Scaffolding.TypeChoice ( TypeChoice (Choice) )
 
 
 tests :: TestTree
@@ -78,6 +98,7 @@ scProps
       , fromListToList
       , fromListIndexedToList
       , enumerateList
+      , enumerateErrorsIfReprIsTooSmall
       , replicateList
       ]
 
@@ -172,7 +193,49 @@ replicateList
 
 enumerateList
   = SC.testProperty "Vector.enumerate  vs  [0 ..]" test
-  where test :: Some Index () -> Bool
-        test (Some n)
-          = toList (fromFin <$> Vector.enumerate n)
-             == List.genericTake (index n) [0 :: Int ..]
+  where test ::     Some Index ()
+                 -> TypeChoice Integral [Int, Int8, Natural, Integer]
+                 -> Bool
+        test (Some n) (Choice p)
+          = let fromVector = toList (fromFin <$> Vector.enumerate n)
+                fromList = List.genericTake (index n)
+                             [0 `asProxyTypeOf` p ..]
+            in  fromVector == fromList
+                  || List.genericLength fromList < index n
+                  -- The only case when they are not equal is when an
+                  -- inapropriately small Integral type is chosen for the Fin
+                  -- representation (e.g. Int8 when tryign to enumerate values
+                  -- > 127). In this case the list enumeration stops at
+                  -- maxBound, while the Vector version can't stop shorter than
+                  -- the requested length, so produces an error instead. But
+                  -- becaues the list version stops just before the error in
+                  -- the Vector version, we get a clean False rather than an
+                  -- exception, and so can || with a check to confirm that it
+                  -- happened because the list version stopped early.
+
+
+class (Bounded a, Integral a) => BoundedIntegral a
+instance (Bounded a, Integral a) => BoundedIntegral a
+
+enumerateErrorsIfReprIsTooSmall
+  = SC.testProperty "Exception when enumerating past maxBound" test
+  where test ::    TypeChoice BoundedIntegral [Int8, Word8, Int16, Word16]
+                -> SC.Property IO
+        test (Choice (Proxy :: Proxy repr))
+          = SC.monadic $ withSome tooHigh
+                           ( (`seq` pure (Left "Should have errored"))
+                           . Vector.last
+                           . Vector.enumerate @ repr
+                           . Index.succ
+                           . Index.succ
+                           )
+                         `catch`
+                         (pure . checkCorrectException)
+          where tooHigh = someIndex $ fromIntegral (maxBound :: repr)
+                checkCorrectException (ErrorCallWithLocation errorMessage _)
+                  | ("succ" `List.isInfixOf` errorMessage)
+                    && ("maxBound" `List.isInfixOf` errorMessage)
+                  = Right "Exception complained about succ and maxBound, \
+                          \as expected"
+                  | otherwise
+                  = Left $ "Unexpected error message: " ++ errorMessage

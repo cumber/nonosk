@@ -74,6 +74,7 @@ test-suite tests
                , tasty-quickcheck
                , tasty-rerun
                , tasty-smallcheck
+               , type-nat-solver
                , smallcheck
   ghc-options: -Wall
                -Wmissing-exported-signatures
