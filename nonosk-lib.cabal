@@ -17,6 +17,7 @@ library
                    Nonosk.FileFormats
                    Nonosk.PathTrie
                    Data.Indexed.Capped
+                   Data.Indexed.Fin
                    Data.Indexed.ForAnyKnownIndex
                    Data.Indexed.Index
                    Data.Indexed.Nat
