@@ -1,10 +1,11 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
-{-# LANGUAGE DataKinds
+{-# LANGUAGE AllowAmbiguousTypes
+           , DataKinds
            , GeneralizedNewtypeDeriving
            , KindSignatures
            , ScopedTypeVariables
            , TypeApplications
-           , TypeFamilies
+           , TypeFamilyDependencies
            , TypeOperators
   #-}
 
@@ -31,7 +32,9 @@ module Nonosk.PosSet
   , fromFoldable
   , toList
 
-  , flattenPos
+  , Direction (..)
+  , Linearise (..)
+  , transpose
   )
 where
 
@@ -52,6 +55,9 @@ import qualified Data.IntSet as IntSet
 
 import Data.Semigroup ( Semigroup )
 
+import Data.Tuple ( swap )
+
+
 import Data.Indexed.Index ( index' )
 import Data.Indexed.Fin ( Fin
                         , fromFin
@@ -66,21 +72,39 @@ import Data.Indexed.Nat ( Nat
 
 type Pos r c = (Fin r Int, Fin c Int)
 
-flattenPos :: forall r c
-            . (KnownNat r, KnownNat c)
-           => Lens.Iso' (Pos r c) (Fin (r × c) Int)
-flattenPos = Lens.iso posToFin finToPos
+rowOrder :: forall r c
+          . (KnownNat r, KnownNat c)
+         => Lens.Iso' (Pos r c) (Fin (r × c) Int)
+rowOrder = Lens.iso posToFin finToPos
   where width = fromIntegral $ index' @ c
-        finToPos = bimap unsafeToFin' unsafeToFin' . flip quotRem width . fromFin
+        finToPos = ( bimap unsafeToFin' unsafeToFin'
+                   . flip quotRem width
+                   . fromFin
+                   )
         posToFin (x, y) = unsafeToFin' $ fromFin x * width + fromFin y
 
 
-newtype PosSet (r :: Nat) (c :: Nat)
+columnOrder :: forall r c
+             . (KnownNat r, KnownNat c)
+            => Lens.Iso' (Pos r c) (Fin (r × c) Int)
+columnOrder = Lens.iso posToFin finToPos
+  where height = fromIntegral $ index' @ r
+        finToPos = ( bimap unsafeToFin' unsafeToFin'
+                   . swap
+                   . flip quotRem height
+                   . fromFin
+                   )
+        posToFin (x, y) = unsafeToFin' $ fromFin y * height + fromFin x
+
+
+data Direction = RowOrder | ColumnOrder
+
+newtype PosSet (d :: Direction) (r :: Nat) (c :: Nat)
   = PosSet { getIntSet :: IntSet }
   deriving (Eq, Ord, Semigroup, Monoid)
 
 
-instance (KnownNat r, KnownNat c) => Show (PosSet r c)
+instance (KnownNat r, KnownNat c) => Show (PosSet d r c)
   where showsPrec p xs
           = showParen (p > appPrec)
               ( showString "fromList "
@@ -89,61 +113,85 @@ instance (KnownNat r, KnownNat c) => Show (PosSet r c)
           where appPrec = 10
 
 
-null :: PosSet r c -> Bool
+type family Transpose d = r | r -> d
+  where Transpose RowOrder = ColumnOrder
+        Transpose ColumnOrder = RowOrder
+
+class Linearise (k :: Direction)
+  where linearise :: (KnownNat r, KnownNat c)
+                  => Lens.Iso' (Pos r c) (Fin (r × c) Int)
+
+instance Linearise RowOrder
+  where linearise = rowOrder
+
+instance Linearise ColumnOrder
+  where linearise = columnOrder
+
+transpose :: PosSet d r c -> PosSet (Transpose d) c r
+transpose = coerce
+
+
+null :: PosSet d r c -> Bool
 null = coerce IntSet.null
 
-size :: PosSet r c -> Int
+size :: PosSet d r c -> Int
 size = coerce IntSet.size
 
-member :: (KnownNat r, KnownNat c) => Pos r c -> PosSet r c -> Bool
+member :: (KnownNat r, KnownNat c) => Pos r c -> PosSet d r c -> Bool
 member = (result . argument) getIntSet ( IntSet.member
                                        . fromFin
-                                       . Lens.view flattenPos
+                                       . Lens.view (linearise @ RowOrder)
                                        )
 
 
-empty :: PosSet r c
+empty :: PosSet d r c
 empty = coerce IntSet.empty
 
-allPositions :: forall r c. (KnownNat r, KnownNat c) => PosSet r c
+allPositions :: forall d r c. (KnownNat r, KnownNat c) => PosSet d r c
 allPositions
   = let rows = fromIntegral $ index' @ r
         cols = fromIntegral $ index' @ c
      in PosSet $ IntSet.fromList [0 .. rows * cols - 1]
 
-singleton :: (KnownNat r, KnownNat c) => Pos r c -> PosSet r c
+singleton :: (KnownNat r, KnownNat c) => Pos r c -> PosSet d r c
 singleton = flip insert empty
 
-insert :: (KnownNat r, KnownNat c) => Pos r c -> PosSet r c -> PosSet r c
-insert = coerce IntSet.insert . fromFin . Lens.view flattenPos
+insert :: (KnownNat r, KnownNat c) => Pos r c -> PosSet d r c -> PosSet d r c
+insert = coerce IntSet.insert . fromFin . Lens.view (linearise @ RowOrder)
 
-delete :: (KnownNat r, KnownNat c) => Pos r c -> PosSet r c -> PosSet r c
-delete = coerce IntSet.delete . fromFin . Lens.view flattenPos
+delete :: (KnownNat r, KnownNat c) => Pos r c -> PosSet d r c -> PosSet d r c
+delete = coerce IntSet.delete . fromFin . Lens.view (linearise @ RowOrder)
 
 
-union :: PosSet r c -> PosSet r c -> PosSet r c
+union :: PosSet d r c -> PosSet d r c -> PosSet d r c
 union = coerce IntSet.union
 
-intersection :: PosSet r c -> PosSet r c -> PosSet r c
+intersection :: PosSet d r c -> PosSet d r c -> PosSet d r c
 intersection = coerce IntSet.intersection
 
-difference :: PosSet r c -> PosSet r c -> PosSet r c
+difference :: PosSet d r c -> PosSet d r c -> PosSet d r c
 difference = coerce IntSet.difference
 
 
-foldr :: (KnownNat r, KnownNat c) => (Pos r c -> b -> b) -> b -> PosSet r c -> b
+foldr :: (KnownNat r, KnownNat c)
+      => (Pos r c -> b -> b) -> b -> PosSet d r c -> b
 foldr f
-  = coerce $ IntSet.foldr (argument (Lens.review flattenPos . unsafeToFin') f)
+  = coerce ( IntSet.foldr (argument (Lens.review (linearise @ RowOrder)
+           . unsafeToFin') f)
+           )
 
 
-fromList :: (KnownNat r, KnownNat c) => [Pos r c] -> PosSet r c
-fromList = coerce IntSet.fromList . map (fromFin . Lens.view flattenPos)
+fromList :: (KnownNat r, KnownNat c) => [Pos r c] -> PosSet d r c
+fromList = coerce IntSet.fromList
+             . map (fromFin . Lens.view (linearise @ RowOrder))
 
-fromFoldable :: (Foldable f, KnownNat r, KnownNat c) => f (Pos r c) -> PosSet r c
+fromFoldable :: (Foldable f, KnownNat r, KnownNat c)
+             => f (Pos r c) -> PosSet d r c
 fromFoldable = fromList . Foldable.toList
 
-toList :: (KnownNat r, KnownNat c) => PosSet r c -> [Pos r c]
-toList = map (Lens.review flattenPos . unsafeToFin') . coerce IntSet.toList
+toList :: (KnownNat r, KnownNat c) => PosSet d r c -> [Pos r c]
+toList = map (Lens.review (linearise @ RowOrder) . unsafeToFin')
+           . coerce IntSet.toList
 
 result = (.)
 argument = flip (.)
