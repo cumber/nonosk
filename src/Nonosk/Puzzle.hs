@@ -42,6 +42,9 @@ module Nonosk.Puzzle
   , Grid, GridKnowledge
   , Puzzle
 
+  , Solver
+  , solverFromHints
+
   , initPuzzle
   , makePuzzle
   , solvePuzzle
@@ -59,7 +62,9 @@ module Nonosk.Puzzle
   )
 where
 
-import Control.Applicative ( Alternative ((<|>), empty) )
+import Control.Applicative ( Alternative ((<|>), empty)
+                           , ZipList (ZipList, getZipList)
+                           )
 
 import Control.Lens ( Lens
                     , (^.)
@@ -72,6 +77,10 @@ import Control.Parallel.Strategies ( parTraversable
                                    , rseq
                                    , withStrategy
                                    )
+
+import Data.Bifunctor ( first, second )
+
+import Data.Coerce ( coerce )
 
 import Data.Constraint ( (:-) (Sub)
                        , Dict (Dict)
@@ -94,6 +103,11 @@ import Data.Indexed.Capped ( Capped
                            , forCapped
                            )
 
+import Data.Indexed.Fin ( Fin
+                        , unsafeToFin'
+                        , fromFin
+                        )
+
 import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex (instAnyKnownIndex)
                                      , ForAnyKnownIndexF (instAnyKnownIndexF)
                                      , ForAnyKnownIndex2 (instAnyKnownIndex2)
@@ -102,11 +116,13 @@ import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex (instAnyKnownIndex)
 import Data.Indexed.Index ( Index (Index)
                           , index
                           , index'
+                          , indexOf
                           , switchZero'
                           )
 
 import Data.Indexed.Nat ( Nat, KnownNat
                         , type (+), type (-)
+                        , type (*)
                         , type (<=)
                         )
 
@@ -127,10 +143,13 @@ import Data.Indexed.Vector2 ( Vector2 (Vector2) )
 import qualified Data.Indexed.Vector2 as Vector2
 
 
-import Nonosk.PathTrie ( PathTrie ( Fork )
+import Nonosk.PathTrie ( PathTrie
                        , Link ((:-->))
                        )
 import qualified Nonosk.PathTrie as PathTrie
+
+import Nonosk.PosSet ( PosSet, Pos )
+import qualified Nonosk.PosSet as PosSet
 
 
 -- | A Hint identifies a run of cells filled with a constant value.
@@ -283,16 +302,115 @@ data LineSpec lineLen a
 Lens.makeLenses ''LineSpec
 
 data Puzzle :: Nat -> Nat -> * -> *
-  where Puzzle     :: { puzzleGrid :: GridKnowledge r c a
-                      , rowSpecs :: Vector r (LineSpec c a)
-                      , colSpecs :: Vector c (LineSpec r a)
-                      } -> Puzzle r c a
+  where Puzzle :: { rowHints :: Vector r (CappedHints c (Cell a))
+                  , colHints :: Vector c (CappedHints r (Cell a))
+                  , puzzleGrid :: GridKnowledge r c a
+                  } -> Puzzle r c a
 
 deriving instance Functor (Puzzle r c)
 deriving instance (KnownNat r, KnownNat c, Show a) => Show (Puzzle r c a)
 
 instance Show a => ForAnyKnownIndex2 Show Puzzle a
   where instAnyKnownIndex2 = Sub Dict
+
+
+data Solver :: Nat -> Nat -> * -> *
+  where Solver :: PosSet.Linearise d
+               => { rowPaths :: Vector r (PathTrie c (Cell a))
+                  , colPaths :: Vector c (PathTrie r (Cell a))
+                  , unknownPositions :: PosSet d r c
+                  } -> Solver r c a
+
+deriving instance Functor (Solver r c)
+
+
+type GridPos r c = (Fin r Int, Fin c Int)
+
+
+solverFromHints :: Eq a
+                => [[Some Hint a]] -> [[Some Hint a]] -> Maybe (Some2 Solver a)
+solverFromHints rowHints colHints
+  = case ( (vecSumFromLists $ fmap addSpacers rowHints)
+         , (vecSumFromLists $ fmap addSpacers colHints)
+         )
+      of (Some rows, Some cols)
+           -> let rows' = pathsFromUnknownHints rows
+                  cols' = pathsFromUnknownHints cols
+                  positions = PosSet.allPositions @ PosSet.RowOrder
+              in  Some2 <$> (Solver <$> rows' <*> cols'<*> pure positions)
+
+
+pathsFromUnknownHints :: (KnownNat l, Eq a)
+                      =>    Vector n (Some (SumList Hint) (Cell a))
+                         -> Maybe (Vector n (PathTrie l (Cell a)))
+pathsFromUnknownHints = sequenceA . (fmap . fmap) linePaths . fmap tryCap
+
+
+-- Data.List.transpose handles ragged lists by giving lists that contain
+-- entries from lists that happened to be long enough; we need to a
+-- variant that truncates all lists to the length of the smallest
+transposeTruncate :: [[a]] -> [[a]]
+transposeTruncate = getZipList . sequenceA . coerce
+
+
+keepKnownPairs :: [(t, Knowledge a)] -> [(t, a)]
+keepKnownPairs = foldr checkPair []
+  where checkPair (a, Known x) = ((a, x) :)
+        checkPair (_, Unknown) = id
+
+
+columnise :: KnownNat c => [(Pos r c, a)] -> Vector c [(Pos r c, a)]
+columnise = foldr insertInColumn (Vector.replicate' [])
+  where insertInColumn ::    (Pos n m, a)
+                          -> Vector m [(Pos n m, a)]
+                          -> Vector m [(Pos n m, a)]
+        insertInColumn k@((_, c), _) vs
+          = Vector.modifyElem c (k :) vs
+
+
+updateColumnsFromRows :: forall r c a
+                       . (KnownNat r, KnownNat c, Eq a)
+                      =>    Natural
+                         -> Solver r c a
+                         -> Solver r c a
+updateColumnsFromRows choiceDepth (Solver rows cols unknowns)
+  = Solver rows' cols' unknowns'
+  where (prefixes, rows')
+           = ( Vector.unzip
+             . fmap (PathTrie.checkPrefixesWithinChoiceDepth choiceDepth)
+             $ rows
+             )
+
+        knowns :: [(Pos r c, Cell a)]
+        knowns = ( filter (flip PosSet.member unknowns . fst)
+                 . concat
+                 . Vector.mapWithIndices prefixesToKnowns
+                 $ prefixes
+                 )
+
+        unknowns' = unknowns `PosSet.difference` PosSet.fromList (map fst knowns)
+
+        colUpdates :: Vector c [PathTrie r (Cell a) -> PathTrie r (Cell a)]
+        colUpdates = (fmap . fmap) toUpdate $ columnise knowns
+
+        cols' = Vector.zipWith (foldr (.) id) colUpdates cols
+
+        prefixesToKnowns :: Eq t => Fin r Int -> [[t]] -> [(Pos r c, t)]
+        prefixesToKnowns rowNum rowPrefixes
+          = (fmap . first) (rowNum,) $ prefixesToKnownPositions rowPrefixes
+
+        prefixesToKnownPositions :: Eq t => [[t]] -> [(Fin c Int, t)]
+        prefixesToKnownPositions
+          = ( map (first unsafeToFin')
+            . keepKnownPairs
+            . zip [0 :: Int ..]
+            . fmap (foldMap Known)
+            . transposeTruncate
+            )
+
+        toUpdate :: Eq t => (Pos n m, t) -> PathTrie n t -> PathTrie n t
+        toUpdate ((r, _), t)
+          = PathTrie.prune r (/= t)
 
 
 initPuzzle :: Eq a => [[Some Hint a]] -> [[Some Hint a]] -> Maybe (Some2 Puzzle a)
@@ -303,9 +421,9 @@ initPuzzle extRowHints extColHints
       of (Some rows, Some cols)
            -> let rows' = sequenceA $ fmap tryCap rows
                   cols' = sequenceA $ fmap tryCap cols
-              in  Some2 <$> (Puzzle <$> pure (Vector2.replicate' Unknown)
-                                    <*> (fmap . fmap) makeLineSpec rows'
-                                    <*> (fmap . fmap) makeLineSpec cols'
+              in  Some2 <$> (Puzzle <$> rows'
+                                    <*> cols'
+                                    <*> pure (Vector2.replicate' Unknown)
                             )
 
 
@@ -321,9 +439,9 @@ makePuzzle extRowHints extColHints extGrid
       of (Some rows, Some cols)
            -> let rows' = sequenceA $ fmap tryCap rows
                   cols' = sequenceA $ fmap tryCap cols
-              in  Some2 <$> (Puzzle <$> guessIndex2' extGrid
-                                    <*> (fmap . fmap) makeLineSpec rows'
-                                    <*> (fmap . fmap) makeLineSpec cols'
+              in  Some2 <$> (Puzzle <$> rows'
+                                    <*> cols'
+                                    <*> guessIndex2' extGrid
                             )
 
 
@@ -571,7 +689,7 @@ pathsFromHints allHints@(hint :+ restHints)
           empty
           ( case hint ^. value
               of Empty -> empty
-                 _     -> Fork [Empty :--> pathsFromHints allHints]
+                 _     -> PathTrie.Fork [Empty :--> pathsFromHints allHints]
           )
 
 
