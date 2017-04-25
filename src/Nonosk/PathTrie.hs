@@ -23,7 +23,6 @@ module Nonosk.PathTrie
   , incompletePaths
   , isEmpty
   , prune
-  , prune'
   , checkPrefixesWithinChoiceDepth
   , removeDeadEndsWithinChoiceDepth
   )
@@ -36,12 +35,15 @@ import Data.Semigroup ( (<>) )
 import Numeric.Natural ( Natural )
 
 
+import Data.Indexed.Fin ( Fin
+                        , down
+                        )
+
 import Data.Indexed.Index ( Index (Index)
                           , switchZero'
                           )
 
 import Data.Indexed.Nat ( KnownNat
-                        , type (<)
                         , type (>=)
                         , type (+), type (-)
                         )
@@ -121,17 +123,14 @@ incompletePaths (Fork ls@(_ : _)) = linkPaths =<< ls
 
 
 prune :: forall i n a
-       . (KnownNat n, i < n)
-      => Index i () -> (a -> Bool) -> PathTrie n a -> PathTrie n a
-prune Index = prune' @ i
-
-prune' :: forall i n a
-        . (KnownNat i, KnownNat n, i < n)
-       => (a -> Bool) -> PathTrie n a -> PathTrie n a
-prune' p (Fork ls)
-  = Fork $ switchZero' @ i
-             (filter (\(x :--> _) -> not $ p x) ls)
-             (push (prune' @ (i - 1) @ (n - 1) p) <$> ls)
+       . Integral i
+      => Fin n i -> (a -> Bool) -> PathTrie n a -> PathTrie n a
+prune _ _ Complete = Complete  -- actually impossible, but let's appease the
+                               -- exhaustiveness checker
+prune i p (Fork ls)
+  = Fork $ case down i
+             of Nothing  -> (filter (\(x :--> _) -> not $ p x) ls)
+                Just i'  -> (push (prune i' p) <$> ls)
 
 
 push :: (PathTrie n a -> PathTrie n a) -> (Link (n + 1) a -> Link (n + 1) a)
