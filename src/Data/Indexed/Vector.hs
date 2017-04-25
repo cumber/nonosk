@@ -36,6 +36,7 @@ module Data.Indexed.Vector
   -- * Vector transformations
   , transpose
   , mapWithIndices
+  , modifyElem
 
   -- * Building vectors
   , fromList
@@ -87,6 +88,7 @@ import qualified GHC.Exts as Exts
 import Data.Indexed.Fin ( Fin
                         , fromFin
                         )
+import qualified Data.Indexed.Fin as Fin
 
 import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex (instAnyKnownIndex)
                                      , ForAnyKnownIndexF (instAnyKnownIndexF)
@@ -359,6 +361,11 @@ transpose = sequenceA
 transpose Nil = replicate' Nil   -- 0 rows of n cols -> n rows of 0 cols
 transpose (row :^ rows) = zipWith (:^) row $ transpose rows
 -}
+
+modifyElem :: Integral i => Fin n i -> (a -> a) -> Vector n a -> Vector n a
+modifyElem _ _ Nil = Nil
+modifyElem i f (x :^ xs)
+  = maybe (f x :^ xs) (\i' -> x :^ modifyElem i' f xs) $ Fin.down i
 
 
 take :: (KnownNat k, k <= n) => Index k () -> Vector n a -> Vector k a
