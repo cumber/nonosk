@@ -15,6 +15,9 @@ module Data.Indexed.Fin
   , inBoundsToFin, inBoundsToFin'
   , unsafeToFin, unsafeToFin'
 
+  , down
+  , up
+
   , Ordinal
   , toOrdinal, toOrdinal'
   , toNatural
@@ -39,6 +42,7 @@ import Data.Indexed.Index ( Index (Index)
 import Data.Indexed.Nat ( Nat
                         , KnownNat
                         , type (>=)
+                        , type (+), type (-)
                         )
 
 
@@ -85,6 +89,32 @@ instance (KnownNat n, Integral a) => Enum (Fin n a)
 
         enumFromThenTo = coerce (enumFromThenTo @ a)
 
+
+{-|
+Similar to 'pred' from 'Enum', with the differences:
+
+  * Returns 'Nothing' rather than calling error when going out of range
+  * If the result is 'Just', the resulting 'Fin' has an index one smaller than
+    the input
+
+This is much more useful when writing recursive functions using a 'Fin' to
+indicate a position in an inductive structure; case analysis on the 'Maybe'
+tells you whether you've reached the right position ('Nothing'), and if not
+gives you a 'Fin' of the right type to pass to the recursive call.
+-}
+down :: (Integral i, n >= 1) => Fin n i -> Maybe (Fin (n - 1) i)
+down (Fin x)
+  | x > 0      = Just $ Fin (x - 1)
+  | otherwise  = Nothing
+
+{-|
+Similar to 'succ' from 'Enum', but also increases the index of the 'Fin' (it's
+therefore impossible to go out of range when using an unbounded representation
+type. Therefore the result is given directly, not in a 'Maybe' as is the case
+with 'down'.
+-}
+up :: Integral i => Fin n i -> Fin (n + 1) i
+up (Fin x) = Fin (x + 1)
 
 (.:) = (.) . (.)
 
