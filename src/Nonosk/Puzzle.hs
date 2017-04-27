@@ -44,6 +44,7 @@ module Nonosk.Puzzle
 
   , Solver
   , solverFromHints
+  , updateSolver
 
   , initPuzzle
   , makePuzzle
@@ -78,7 +79,7 @@ import Control.Parallel.Strategies ( parTraversable
                                    , withStrategy
                                    )
 
-import Data.Bifunctor ( first, second )
+import Data.Bifunctor ( first )
 
 import Data.Coerce ( coerce )
 
@@ -93,7 +94,11 @@ import Data.Function.Memoize ( memoFix2 )
 
 import Data.List ( unfoldr )
 
-import Data.Semigroup ( Semigroup ((<>)) )
+import qualified Data.List.NonEmpty as NonEmpty
+
+import Data.Semigroup ( Semigroup ((<>), stimes, sconcat)
+                      , stimesIdempotent
+                      )
 
 import Numeric.Natural ( Natural )
 
@@ -105,7 +110,6 @@ import Data.Indexed.Capped ( Capped
 
 import Data.Indexed.Fin ( Fin
                         , unsafeToFin'
-                        , fromFin
                         )
 
 import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex (instAnyKnownIndex)
@@ -116,13 +120,11 @@ import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex (instAnyKnownIndex)
 import Data.Indexed.Index ( Index (Index)
                           , index
                           , index'
-                          , indexOf
                           , switchZero'
                           )
 
 import Data.Indexed.Nat ( Nat, KnownNat
                         , type (+), type (-)
-                        , type (*)
                         , type (<=)
                         )
 
@@ -235,14 +237,15 @@ maybeKnowledge = Lens.iso forward backward
         backward = withKnowledge Nothing Just
 
 instance Eq a => Semigroup (Knowledge a)
-  where z@(Known x) <> Known y
-          | x == y  = z
-        _ <> _ = Unknown
+  where kx <> ky
+          | Known x <- kx
+          , Known y <- ky
+          , x == y
+          = kx
+          | otherwise
+          = Unknown
 
-instance Eq a => Monoid (Knowledge a)
-  where mappend = (<>)
-        mempty = Unknown
-
+        stimes = stimesIdempotent
 
 -- | A Line is a 'Vector' of 'Cell's
 type Line n a = Vector n (Cell a)
@@ -368,12 +371,12 @@ columnise = foldr insertInColumn (Vector.replicate' [])
           = Vector.modifyElem c (k :) vs
 
 
-updateColumnsFromRows :: forall r c a
-                       . (KnownNat r, KnownNat c, Eq a)
-                      =>    Natural
-                         -> Solver r c a
-                         -> Solver r c a
-updateColumnsFromRows choiceDepth (Solver rows cols unknowns)
+updateSolver :: forall r c a
+              . (KnownNat r, KnownNat c, Eq a, Show a)
+             =>    Natural
+                -> Solver r c a
+                -> Solver r c a
+updateSolver choiceDepth (Solver rows cols unknowns)
   = Solver rows' cols' unknowns'
   where (prefixes, rows')
            = ( Vector.unzip
@@ -384,33 +387,35 @@ updateColumnsFromRows choiceDepth (Solver rows cols unknowns)
         knowns :: [(Pos r c, Cell a)]
         knowns = ( filter (flip PosSet.member unknowns . fst)
                  . concat
-                 . Vector.mapWithIndices prefixesToKnowns
+                 . Vector.mapWithIndices (prefixesToKnowns Index)
                  $ prefixes
                  )
+
+        colUpdates = (fmap . fmap) updateColumn $ columnise knowns
+        cols' = Vector.zipWith (foldr (.) id) colUpdates cols
 
         unknowns' = unknowns `PosSet.difference` PosSet.fromList (map fst knowns)
 
         colUpdates :: Vector c [PathTrie r (Cell a) -> PathTrie r (Cell a)]
-        colUpdates = (fmap . fmap) toUpdate $ columnise knowns
 
-        cols' = Vector.zipWith (foldr (.) id) colUpdates cols
 
-        prefixesToKnowns :: Eq t => Fin r Int -> [[t]] -> [(Pos r c, t)]
-        prefixesToKnowns rowNum rowPrefixes
-          = (fmap . first) (rowNum,) $ prefixesToKnownPositions rowPrefixes
+prefixesToKnowns :: Eq a => Index c () -> Fin r Int -> [[a]] -> [(Pos r c, a)]
+prefixesToKnowns colHeight rowNum rowPrefixes
+  = (fmap . first) (rowNum,)
+      $ prefixesToKnownPositions colHeight rowPrefixes
 
-        prefixesToKnownPositions :: Eq t => [[t]] -> [(Fin c Int, t)]
-        prefixesToKnownPositions
-          = ( map (first unsafeToFin')
-            . keepKnownPairs
-            . zip [0 :: Int ..]
-            . fmap (foldMap Known)
-            . transposeTruncate
-            )
+prefixesToKnownPositions :: Eq a => Index c () -> [[a]] -> [(Fin c Int, a)]
+prefixesToKnownPositions Index
+  = ( map (first unsafeToFin')
+    . keepKnownPairs
+    . zip [0 :: Int ..]
+    . fmap (sconcat . fmap Known . NonEmpty.fromList)  -- TODO: avoid partial
+    . transposeTruncate
+    )
 
-        toUpdate :: Eq t => (Pos n m, t) -> PathTrie n t -> PathTrie n t
-        toUpdate ((r, _), t)
-          = PathTrie.prune r (/= t)
+updateColumn :: Eq t => (Pos r c, t) -> PathTrie r t -> PathTrie r t
+updateColumn ((r, _), t)
+  = PathTrie.prune r (/= t)
 
 
 initPuzzle :: Eq a => [[Some Hint a]] -> [[Some Hint a]] -> Maybe (Some2 Puzzle a)
