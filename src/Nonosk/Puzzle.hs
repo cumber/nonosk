@@ -45,6 +45,7 @@ module Nonosk.Puzzle
   , Solver
   , solverFromHints
   , updateSolver
+  , iterateSolver
 
   , initPuzzle
   , makePuzzle
@@ -90,9 +91,13 @@ import Data.Constraint ( (:-) (Sub)
 
 import Data.Foldable ( foldl' )
 
+import Data.Function ( on )
+
 import Data.Function.Memoize ( memoFix2 )
 
 import Data.List ( unfoldr )
+
+import Data.List.HT ( takeUntil )
 
 import qualified Data.List.NonEmpty as NonEmpty
 
@@ -150,7 +155,9 @@ import Nonosk.PathTrie ( PathTrie
                        )
 import qualified Nonosk.PathTrie as PathTrie
 
-import Nonosk.PosSet ( PosSet, Pos )
+import Nonosk.PosSet ( PosSet, Pos
+                     , Direction (RowOrder)
+                     )
 import qualified Nonosk.PosSet as PosSet
 
 
@@ -317,21 +324,17 @@ instance Show a => ForAnyKnownIndex2 Show Puzzle a
   where instAnyKnownIndex2 = Sub Dict
 
 
-data Solver :: Nat -> Nat -> * -> *
-  where Solver :: PosSet.Linearise d
-               => { rowPaths :: Vector r (PathTrie c (Cell a))
+data Solver :: Direction -> Nat -> Nat -> * -> *
+  where Solver :: { rowPaths :: Vector r (PathTrie c (Cell a))
                   , colPaths :: Vector c (PathTrie r (Cell a))
                   , unknownPositions :: PosSet d r c
-                  } -> Solver r c a
+                  } -> Solver d r c a
 
-deriving instance Functor (Solver r c)
-
-
-type GridPos r c = (Fin r Int, Fin c Int)
+deriving instance Functor (Solver d r c)
 
 
 solverFromHints :: Eq a
-                => [[Some Hint a]] -> [[Some Hint a]] -> Maybe (Some2 Solver a)
+                => [[Some Hint a]] -> [[Some Hint a]] -> Maybe (Some2 (Solver d) a)
 solverFromHints rowHints colHints
   = case ( (vecSumFromLists $ fmap addSpacers rowHints)
          , (vecSumFromLists $ fmap addSpacers colHints)
@@ -339,7 +342,7 @@ solverFromHints rowHints colHints
       of (Some rows, Some cols)
            -> let rows' = pathsFromUnknownHints rows
                   cols' = pathsFromUnknownHints cols
-                  positions = PosSet.allPositions @ PosSet.RowOrder
+                  positions = PosSet.allPositions
               in  Some2 <$> (Solver <$> rows' <*> cols'<*> pure positions)
 
 
@@ -371,11 +374,11 @@ columnise = foldr insertInColumn (Vector.replicate' [])
           = Vector.modifyElem c (k :) vs
 
 
-updateSolver :: forall r c a
-              . (KnownNat r, KnownNat c, Eq a, Show a)
+updateSolver :: forall d r c a
+              . (KnownNat r, KnownNat c, Eq a)
              =>    Natural
-                -> Solver r c a
-                -> Solver r c a
+                -> Solver d r c a
+                -> Solver d r c a
 updateSolver choiceDepth (Solver rows cols unknowns)
   = Solver rows' cols' unknowns'
   where (prefixes, rows')
@@ -416,6 +419,86 @@ prefixesToKnownPositions Index
 updateColumn :: Eq t => (Pos r c, t) -> PathTrie r t -> PathTrie r t
 updateColumn ((r, _), t)
   = PathTrie.prune r (/= t)
+
+
+updateSolverFromRows :: (KnownNat r, KnownNat c, Eq a)
+                     =>    Natural
+                        -> Solver RowOrder r c a
+                        -> Solver RowOrder r c a
+updateSolverFromRows = updateSolver
+
+
+updateSolverFromColumns :: (KnownNat r, KnownNat c, Eq a)
+                        =>    Natural
+                           -> Solver RowOrder r c a
+                           -> Solver RowOrder r c a
+updateSolverFromColumns depth
+  = transposeSolver . updateSolver depth . transposeSolver
+
+
+transposeSolver :: Solver d r c a -> Solver (PosSet.Transpose d) c r a
+transposeSolver (Solver rows cols unknowns)
+  = Solver cols rows (PosSet.transpose unknowns)
+
+
+iterateSolver :: forall r c a
+               . (KnownNat r, KnownNat c, Eq a)
+              => Solver RowOrder r c a -> [Solver RowOrder r c a]
+iterateSolver initial
+  = let increasingSeries = iterateSolverIncreasingDepth initial
+        completeSeries = extendWith iterateSolverMaxDepthUntilStuck
+                           increasingSeries
+        solved = PosSet.null . unknownPositions
+     in takeUntil solved completeSeries
+
+
+iterateSolverIncreasingDepth
+  :: forall r c a
+   . (KnownNat r, KnownNat c, Eq a)
+  => Solver RowOrder r c a -> [Solver RowOrder r c a]
+iterateSolverIncreasingDepth
+  = applyUpdates
+      [ update depth
+      | depth <- [0 .. maxDepth]
+      , update <- [updateSolverFromRows, updateSolverFromColumns]
+      ]
+  where maxDepth = max (index' @ r) (index' @ c)
+
+
+iterateSolverMaxDepthUntilStuck
+  :: forall r c a
+   . (KnownNat r, KnownNat c, Eq a)
+  => Solver RowOrder r c a -> [Solver RowOrder r c a]
+iterateSolverMaxDepthUntilStuck initial
+  = let maxDepth = max (index' @ r) (index' @ c)
+        series = cycle [ updateSolverFromRows maxDepth
+                       , updateSolverFromColumns maxDepth
+                       ]
+                   `applyUpdates` initial
+        stuck = checkAgainstNthPrev 2 False
+                  ((==) `on` unknownPositions)
+                  series
+     in zipWith const series (takeWhile not stuck)
+
+
+checkAgainstNthPrev :: Int -> Bool -> (a -> a -> Bool) -> [a] -> [Bool]
+checkAgainstNthPrev n def pred xs
+  = let shifted = drop n xs
+     in case shifted
+          of [] -> const def <$> xs     -- xs not long enough; fill with default
+             (_ : _)
+                -> replicate n def ++ zipWith pred xs shifted
+
+applyUpdates :: [a -> a] -> a -> [a]
+applyUpdates = flip (scanl (flip ($)))
+
+
+extendWith :: (a -> [a]) -> [a] -> [a]
+extendWith _ [] = []
+extendWith f (x : xs) = go x xs
+  where go prev [] = f prev
+        go prev (y : ys) = prev : go y ys
+
 
 
 initPuzzle :: Eq a => [[Some Hint a]] -> [[Some Hint a]] -> Maybe (Some2 Puzzle a)

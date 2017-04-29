@@ -34,6 +34,7 @@ module Nonosk.PosSet
 
   , Direction (..)
   , Linearise (..)
+  , Transpose
   , transpose
   )
 where
