@@ -115,7 +115,7 @@ solverFromHints rowHints colHints
 pathsFromUnknownHints :: (KnownNat l, Eq a)
                       =>    Vector n (Some (SumList Hint) (Cell a))
                          -> Maybe (Vector n (PathTrie l (Cell a)))
-pathsFromUnknownHints = sequenceA . (fmap . fmap) linePaths . fmap tryCap
+pathsFromUnknownHints = sequenceA . fmap (fmap linePaths . tryCap)
 
 
 -- Data.List.transpose handles ragged lists by giving lists that contain
@@ -136,8 +136,8 @@ columnise = foldr insertInColumn (Vector.replicate' [])
   where insertInColumn ::    (Pos n m, a)
                           -> Vector m [(Pos n m, a)]
                           -> Vector m [(Pos n m, a)]
-        insertInColumn k@((_, c), _) vs
-          = Vector.modifyElem c (k :) vs
+        insertInColumn k@((_, c), _)
+          = Vector.modifyElem c (k :)
 
 _unused = (rowPaths, colPaths)
 
@@ -162,7 +162,7 @@ updateSolver choiceDepth (Solver rows cols unknowns)
                  )
 
         colUpdates :: Vector c [PathTrie r (Cell a) -> PathTrie r (Cell a)]
-        colUpdates = (fmap . fmap) updateColumn $ columnise knowns
+        colUpdates = fmap updateColumn <$> columnise knowns
 
         cols' = Vector.zipWith (foldr (.) id) colUpdates cols
 
@@ -171,8 +171,7 @@ updateSolver choiceDepth (Solver rows cols unknowns)
 
 prefixesToKnowns :: Eq a => Index c () -> Fin r Int -> [[a]] -> [(Pos r c, a)]
 prefixesToKnowns rowLen rowNum rowPrefixes
-  = (fmap . first) (rowNum,)
-      $ prefixesToKnownPositions rowLen rowPrefixes
+  = first (rowNum,) <$> prefixesToKnownPositions rowLen rowPrefixes
 
 prefixesToKnownPositions :: Eq a => Index c () -> [[a]] -> [(Fin c Int, a)]
 prefixesToKnownPositions Index
