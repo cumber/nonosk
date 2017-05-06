@@ -19,6 +19,7 @@ import Data.Semigroup ( (<>) )
 
 import Data.Indexed.Some ( Some2 )
 import Nonosk.Hints
+import Nonosk.Grid
 import Nonosk.Puzzle
 
 

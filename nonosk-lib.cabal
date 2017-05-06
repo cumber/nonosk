@@ -15,6 +15,7 @@ cabal-version: >=1.10
 library
   exposed-modules: Nonosk.Puzzle
                    Nonosk.Hints
+                   Nonosk.Grid
                    Nonosk.FileFormats
                    Nonosk.PathTrie
                    Nonosk.PosSet
