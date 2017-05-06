@@ -14,11 +14,13 @@ cabal-version: >=1.10
 
 library
   exposed-modules: Nonosk.Puzzle
-                   Nonosk.Hints
-                   Nonosk.Grid
                    Nonosk.FileFormats
+                   Nonosk.Grid
+                   Nonosk.Hints
+                   Nonosk.PathSolver
                    Nonosk.PathTrie
                    Nonosk.PosSet
+
                    Data.Indexed.Capped
                    Data.Indexed.Fin
                    Data.Indexed.ForAnyKnownIndex
