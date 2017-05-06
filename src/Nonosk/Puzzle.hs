@@ -394,18 +394,18 @@ updateSolver choiceDepth (Solver rows cols unknowns)
                  $ prefixes
                  )
 
+        colUpdates :: Vector c [PathTrie r (Cell a) -> PathTrie r (Cell a)]
         colUpdates = (fmap . fmap) updateColumn $ columnise knowns
+
         cols' = Vector.zipWith (foldr (.) id) colUpdates cols
 
         unknowns' = unknowns `PosSet.difference` PosSet.fromList (map fst knowns)
 
-        colUpdates :: Vector c [PathTrie r (Cell a) -> PathTrie r (Cell a)]
-
 
 prefixesToKnowns :: Eq a => Index c () -> Fin r Int -> [[a]] -> [(Pos r c, a)]
-prefixesToKnowns colHeight rowNum rowPrefixes
+prefixesToKnowns rowLen rowNum rowPrefixes
   = (fmap . first) (rowNum,)
-      $ prefixesToKnownPositions colHeight rowPrefixes
+      $ prefixesToKnownPositions rowLen rowPrefixes
 
 prefixesToKnownPositions :: Eq a => Index c () -> [[a]] -> [(Fin c Int, a)]
 prefixesToKnownPositions Index
