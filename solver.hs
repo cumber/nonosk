@@ -9,8 +9,9 @@ import System.Environment
 
 import Data.Indexed.Some
 
-import Nonosk.Puzzle
+import Nonosk.Grid
 import Nonosk.FileFormats
+import Nonosk.ListSolver
 
 
 main :: IO ()
@@ -21,4 +22,4 @@ main
           of Left err
                 -> putStrLn err
              Right puzzle
-               -> mapM_ putStrLn $ forSome2 (fmap gridToAscii . solvePuzzleSteps) puzzle
+               -> mapM_ putStrLn $ forSome2 (fmap gridToAscii . iterateSolver) puzzle

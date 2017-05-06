@@ -20,13 +20,13 @@ import Data.Semigroup ( (<>) )
 import Data.Indexed.Some ( Some2 )
 import Nonosk.Hints
 import Nonosk.Grid
-import Nonosk.Puzzle
+import Nonosk.ListSolver
 
 
 nonoskNonogramHeader = "# nonosk nonogram"
 nonoskNonogramHeaderLength = Char8.length nonoskNonogramHeader
 
-parseSimplePuzzle :: Char8.ByteString -> Either String (Some2 Puzzle ())
+parseSimplePuzzle :: Char8.ByteString -> Either String (Some2 Solver ())
 parseSimplePuzzle = parseLines . Char8.lines
 
 
@@ -36,10 +36,10 @@ parseLines inputLines
        (cols, rest'') <- parseClues "columns" rest'
        if null rest''
          then maybe (Left "Invalid row and column clues") Right
-                $ initPuzzle rows cols
+                $ initSolver rows cols
          else do grid <- parseGrid rest''
                  maybe (Left "Invalid row and column clues or grid") Right
-                    $ makePuzzle rows cols grid
+                    $ makeSolver rows cols grid
 
 
 parseHeader [] = Left "Empty input"

@@ -13,10 +13,10 @@ build-type: Simple
 cabal-version: >=1.10
 
 library
-  exposed-modules: Nonosk.Puzzle
-                   Nonosk.FileFormats
+  exposed-modules: Nonosk.FileFormats
                    Nonosk.Grid
                    Nonosk.Hints
+                   Nonosk.ListSolver
                    Nonosk.PathSolver
                    Nonosk.PathTrie
                    Nonosk.PosSet
@@ -47,7 +47,6 @@ library
                , haskell-src-exts
                , haskell-src-meta
                , lens
-               , memoize
                , mtl
                , parallel
                , template-haskell
