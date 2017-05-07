@@ -67,6 +67,7 @@ test-suite tests
                  Scaffolding.Probe
                  Scaffolding.TypeChoice
                  Test.Data.Indexed.Vector
+                 Test.Nonosk.Solvers
   build-depends: base
                , nonosk-lib
 
@@ -80,6 +81,7 @@ test-suite tests
                , tasty-smallcheck
                , type-nat-solver
                , smallcheck
+               , utility-ht
   ghc-options: -Wall
                -Wmissing-exported-signatures
                -Wno-unticked-promoted-constructors
