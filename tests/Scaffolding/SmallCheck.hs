@@ -1,18 +1,20 @@
-{-# LANGUAGE ConstraintKinds
-           , FlexibleContexts
+{-# LANGUAGE FlexibleContexts
            , FlexibleInstances
            , MultiParamTypeClasses
            , ScopedTypeVariables
-           , TypeInType
-           , TypeOperators
            , UndecidableInstances
   #-}
 
 module Scaffolding.SmallCheck
-  ( tagged
-  , taggedF
-  )
 where
+
+import qualified Data.List as List
+
+import Data.List.HT ( sliceVertical )
+
+import Data.Maybe ( fromMaybe )
+
+import Numeric.Natural ( Natural )
 
 import Test.SmallCheck.Series ( Serial (series)
                               , Series
@@ -20,63 +22,63 @@ import Test.SmallCheck.Series ( Serial (series)
                               )
 
 
-import Scaffolding.Probe ( Probe (Probe, ProbeEnum)
-                         , Tagged (Tagged)
-                         )
+import Scaffolding.Poly ( Poly
+                        , fillPoly
+                        , tagValues
+                        )
 
 import Scaffolding.TypeChoice ( TypeChoice
                               , Choosable
                               , choices
                               )
 
-import Data.Indexed.Fin ( fromFin )
+import Data.Indexed.Index ( Index )
 
-import Data.Indexed.Index ( Index
-                          , index
-                          )
-
-import Data.Indexed.Some ( Some (Some)
-                         , forSome
-                         , Some2 (Some2)
+import Data.Indexed.Some ( Some
+                         , Some2
                          , someIndex
                          )
 
 import Data.Indexed.Vector ( Vector )
 import qualified Data.Indexed.Vector as Vector
 
-import Data.Indexed.Vector2 ( Vector2 (Vector2) )
-
-
-tagged :: Serial m (Probe cs) => String -> Series m (Tagged cs)
-tagged tag = Tagged tag <$> series
-
-taggedF :: (Serial m (f (Probe cs)), Functor f)
-        => String -> Series m (f (Tagged cs))
-taggedF tag = fmap (Tagged tag) <$> series
+import Data.Indexed.Vector2 ( Vector2 )
+import qualified Data.Indexed.Vector2 as Vector2
 
 
 instance Monad m => Serial m (Some Index ())
-  where series = generate $ \d -> if d < 0
-                                    then  []
-                                    else  someIndex <$> [0 .. fromIntegral d]
+  where series = someIndex <$> naturals
 
 
-instance Monad m => Serial m (Some Vector (Probe '[]))
-  where series = forSome (\i -> Some $ Vector.fromIndices i (Probe . fromFin))
-                   <$> series
+polyVector :: Natural -> Poly (Some Vector)
+polyVector n = fillPoly (Vector.fromList . List.genericTake n)
 
-instance Monad m => Serial m (Some2 Vector2 (Probe '[]))
-  where series
-          = let makeRow len r = Vector.fromIndices len (Probe . pos len r)
-                pos rowLenIndex rowNo c
-                  = index rowLenIndex * (fromFin rowNo + fromFin c)
-                makeVectors (Some rows, Some cols)
-                  = Some2 . Vector2 $ Vector.fromIndices rows (makeRow cols)
-             in makeVectors <$> series
+polyVector2 :: Natural -> Natural -> Poly (Some2 Vector2)
+polyVector2 r c = fillPoly (unjust . Vector2.fromLists . unflatten)
+  where unflatten = List.genericTake r . sliceVertical (fromIntegral c)
+        unjust = fromMaybe (error "should not happen")
 
 
-instance Monad m => Serial m (Probe '[Enum])
-  where series = ProbeEnum <$> series
+naturals :: Series m Natural
+naturals = generate $ \d -> if d < 0
+                              then  []
+                              else  [0 .. fromIntegral d]
+
+
+instance (Monad m, Serial m a) => Serial m (Some Vector a)
+  where series = Vector.fromList <$> series
+
+
+instance Monad m => Serial m (Poly (Some Vector))
+  where series = polyVector <$> naturals
+
+
+instance Monad m => Serial m (Poly (Some2 Vector2))
+  where series = polyVector2 <$> naturals <*> naturals
+
+
+tagged :: (Functor f, Serial m (Poly f)) => String -> Series m (Poly f)
+tagged tag = tagValues tag <$> series
 
 
 instance (Monad m, Choosable c ts) => Serial m (TypeChoice c ts)

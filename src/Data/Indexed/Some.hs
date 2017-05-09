@@ -56,10 +56,10 @@ import Data.Indexed.Nat ( Nat, KnownNat
 import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex (instAnyKnownIndex)
                                      , ForAnyKnownIndexF (instAnyKnownIndexF)
                                      , ForAnyKnownIndex2 (instAnyKnownIndex2)
+                                     , ForAnyKnownIndex2F (instAnyKnownIndex2F)
                                      )
 
 import Data.Indexed.Index ( Index (Index)
-                          , withSameIndex
                           , withIndexOf
                           , sameIndex'
                           )
@@ -80,8 +80,8 @@ instance ForAnyKnownIndex Show f a => Show (Some f a)
 
 
 instance ForAnyKnownIndex Eq f a => Eq (Some f (a :: Type))
-  where Some (xs :: f n a) == Some ys
-          = fromMaybe False $ withSameIndex (==) xs ys
+  where Some (xs :: f n a) == ys
+          = Just xs == guessIndex' @n ys
               \\ (instAnyKnownIndex :: KnownNat n :- Eq (f n a))
 
 
@@ -151,6 +151,40 @@ instance ForAnyKnownIndex2 Show f a => Show (Some2 f a)
                  )
           where appPrec = 10
 
+
+instance ForAnyKnownIndex2 Eq f a => Eq (Some2 f (a :: Type))
+  where Some2 (xs :: f n m a) == ys
+          = Just xs == guessIndex2' @n @m ys
+              \\ ( instAnyKnownIndex2
+                     :: (KnownNat n, KnownNat m) :- Eq (f n m a)
+                 )
+
+
+instance ForAnyKnownIndex2F Functor f => Functor (Some2 f)
+  where fmap f (Some2 (x :: f n m a))
+          = Some2 (fmap f x)
+              \\ ( instAnyKnownIndex2F
+                     :: (KnownNat n, KnownNat m) :- Functor (f n m)
+                 )
+
+
+instance ForAnyKnownIndex2F Foldable f => Foldable (Some2 f)
+  where foldMap f (Some2 (x :: f n m a))
+          = foldMap f x
+              \\ ( instAnyKnownIndex2F
+                     :: (KnownNat n, KnownNat m) :- Foldable (f n m)
+                 )
+
+
+instance ( ForAnyKnownIndex2F Functor f
+         , ForAnyKnownIndex2F Foldable f
+         , ForAnyKnownIndex2F Traversable f
+         ) => Traversable (Some2 f)
+  where traverse f (Some2 (x :: f n m a))
+          = Some2 <$> traverse f x
+              \\ ( instAnyKnownIndex2F
+                     :: (KnownNat n, KnownNat m) :- Traversable (f n m)
+                 )
 
 forSome2 :: (forall n m. (KnownNat n, KnownNat m) => f n m a -> r)
           -> (Some2 f a -> r)

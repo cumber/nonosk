@@ -9,6 +9,7 @@ module Data.Indexed.ForAnyKnownIndex
   ( ForAnyKnownIndex (..)
   , ForAnyKnownIndexF (..)
   , ForAnyKnownIndex2 (..)
+  , ForAnyKnownIndex2F (..)
   )
 where
 
@@ -30,3 +31,8 @@ class ForAnyKnownIndexF p f
 class ForAnyKnownIndex2 p f a
   where instAnyKnownIndex2 :: forall n m
                             . (KnownNat n, KnownNat m) :- p (f n m a)
+
+
+class ForAnyKnownIndex2F p f
+  where instAnyKnownIndex2F :: forall n m
+                             . (KnownNat n, KnownNat m) :- p (f n m)

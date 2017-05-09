@@ -26,7 +26,9 @@ import Data.Constraint ( Dict (Dict)
 
 import Data.Foldable ( Foldable (toList) )
 
-import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex2 (instAnyKnownIndex2) )
+import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex2 (instAnyKnownIndex2)
+                                     , ForAnyKnownIndex2F (instAnyKnownIndex2F)
+                                     )
 
 import Data.Indexed.Index ( Index (Index) )
 
@@ -46,6 +48,15 @@ newtype Vector2 (r :: Nat) (c :: Nat) (a :: *)
 
 instance Show a => ForAnyKnownIndex2 Show Vector2 a
   where instAnyKnownIndex2 = Sub Dict
+
+instance ForAnyKnownIndex2F Functor Vector2
+  where instAnyKnownIndex2F = Sub Dict
+
+instance ForAnyKnownIndex2F Foldable Vector2
+  where instAnyKnownIndex2F = Sub Dict
+
+instance ForAnyKnownIndex2F Traversable Vector2
+  where instAnyKnownIndex2F = Sub Dict
 
 
 toLists :: Vector2 r c a -> [[a]]

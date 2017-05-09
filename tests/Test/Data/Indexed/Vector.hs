@@ -63,10 +63,10 @@ import qualified Data.Indexed.Vector as Vector
 
 import Data.Indexed.Vector2 ( Vector2 (Vector2) )
 
-import Scaffolding.SmallCheck ( taggedF )
-import Scaffolding.Probe ( Probe
-                         , Tagged
-                         )
+import Scaffolding.SmallCheck ( tagged )
+import Scaffolding.Poly ( Poly (Poly)
+                        , Val
+                        )
 import Scaffolding.TypeChoice ( TypeChoice (Choice) )
 
 
@@ -106,57 +106,58 @@ scProps
 testAgainstList
   :: Eq r
   =>    String
-     -> (forall n. KnownNat n => Vector n (Probe '[]) -> r)
-     -> ([Probe '[]] -> r)
+     -> (forall n. KnownNat n => Vector n Val -> r)
+     -> ([Val] -> r)
      -> TestTree
 testAgainstList label vectorOp listOp
   = SC.testProperty label test
-  where test (Some xs) = vectorOp xs == (listOp . toList) xs
+  where test (Poly (Some xs)) = vectorOp xs == (listOp . toList) xs
 
 
 testAgainstNonEmptyList
   :: Eq r
   =>    String
-     -> (forall n. (KnownNat n, n >= 1) => Vector n (Probe '[]) -> r)
-     -> ([Probe '[]] -> r)
+     -> (forall n. (KnownNat n, n >= 1) => Vector n Val -> r)
+     -> ([Val] -> r)
      -> TestTree
 testAgainstNonEmptyList label vectorOp listOp
   = SC.testProperty label test
-  where test :: Some Vector (Probe '[]) -> Bool
-        test (Some (xs :: Vector n (Probe '[])))
+  where test :: Poly (Some Vector) -> Bool
+        test (Poly (Some (xs :: Vector n Val)))
           = switchZero' @ n
               (null . toList $ xs)
               (vectorOp xs == (listOp . toList) xs)
 
 
-over2 s1 s2 q = SC.over s1 (\x -> SC.over s2 (\y -> q x y))
+over2 s1 s2 q = SC.over s1 (\x -> SC.over s2 (q x))
 
 
 appendList
   = SC.testProperty "Vector.append xs ys  vs  toList xs List.++ toList ys"
-      $ over2 (taggedF "X") (taggedF "Y") test
-  where test :: Some Vector (Tagged '[]) -> Some Vector (Tagged '[]) -> Bool
-        test (Some xs) (Some ys)
+      $ over2 (tagged "X") (tagged "Y") test
+  where test :: Poly (Some Vector) -> Poly (Some Vector) -> Bool
+        test (Poly (Some xs)) (Poly (Some ys))
           = toList (Vector.append xs ys) == toList xs List.++ toList ys
 
 appendOperatorList
   = SC.testProperty "xs Vector.++ ys  vs  toList xs List.++ toList ys"
-      $ over2 (taggedF "X") (taggedF "Y") test
-  where test :: Some Vector (Tagged '[]) -> Some Vector (Tagged '[]) -> Bool
-        test (Some xs) (Some ys)
+      $ over2 (tagged "X") (tagged "Y") test
+  where test :: Poly (Some Vector) -> Poly (Some Vector) -> Bool
+        test (Poly (Some xs)) (Poly (Some ys))
           = toList (xs Vector.++ ys) == toList xs List.++ toList ys
 
 
 indexLengthFoldable
   = SC.testProperty "Vector.indexLength  vs  Foldable.length" test
-  where test :: Some Vector (Probe '[]) -> Bool
-        test (Some xs)
+  where test :: Poly (Some Vector) -> Bool
+        test (Poly (Some xs))
           = (fromIntegral . index . Vector.indexLength) xs == length xs
+
 
 transposeList
   = SC.testProperty "Vector.transpose  vs  List.transpose" test
-  where test :: Some2 Vector2 (Probe '[]) -> Bool
-        test (Some2 (Vector2 xss :: Vector2 r c (Probe '[])))
+  where test :: Poly (Some2 Vector2) -> Bool
+        test (Poly (Some2 (Vector2 xss :: Vector2 r c Val)))
           = let v = (fmap toList . toList . Vector.transpose) xss
                 l = (List.transpose . fmap toList . toList) xss
                 -- Vector.transpose faithfully transforms 0 rows of n columns
@@ -173,13 +174,13 @@ transposeList
 
 fromListToList
   = SC.testProperty "Vector.fromList . toList" test
-  where test :: Some Vector (Probe '[]) -> Bool
-        test (Some xs) = (Vector.fromList . toList) xs == Some xs
+  where test :: Poly (Some Vector) -> Bool
+        test (Poly (Some xs)) = (Vector.fromList . toList) xs == Some xs
 
 fromListIndexedToList
   = SC.testProperty "Vector.fromListIndexed . toList" test
-  where test :: Some Vector (Probe '[]) -> Bool
-        test (Some xs)
+  where test :: Poly (Some Vector) -> Bool
+        test (Poly (Some xs))
           = (Vector.fromListIndexed (Vector.indexLength xs) . toList) xs
              == Just xs
 
