@@ -41,6 +41,8 @@ import qualified Data.Indexed.Vector2 as Vector2
 
 import Nonosk.Grid
 
+import Scaffolding.SmallCheck
+
 
 tests :: TestTree
 tests = testGroup "Solvers" []
@@ -52,21 +54,3 @@ data KnownCell
               , known :: Bool
               }
   deriving (Eq, Show, Generic)
-
-
-instance (Monad m, Serial m a) => Serial m (Some Vector a)
-  where series = Vector.fromList <$> series
-
-
-maybeAlternative :: Alternative f => Maybe a -> f a
-maybeAlternative = maybe empty pure
-
-
-instance (Monad m, Serial m a) => Serial m (Some2 Vector2 a)
-  where series
-          = do  Positive rowLen <- decDepth series
-                lists <- decDepth series
-                maybeAlternative
-                  . Vector2.fromLists
-                  . sliceVertical rowLen
-                  $ lists

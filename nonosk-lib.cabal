@@ -71,7 +71,9 @@ test-suite tests
   build-depends: base
                , nonosk-lib
 
+               , arithmoi
                , constraints
+               , containers
                , tasty
                , tasty-expected-failure
                , tasty-golden
