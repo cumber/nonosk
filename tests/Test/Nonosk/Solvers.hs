@@ -40,6 +40,9 @@ import Data.Indexed.Vector2 ( Vector2 )
 import qualified Data.Indexed.Vector2 as Vector2
 
 import Nonosk.Grid
+import Nonosk.Hints
+import qualified Nonosk.ListSolver as ListSolver
+import qualified Nonosk.PathSolver as PathSolver
 
 import Scaffolding.SmallCheck
 
@@ -49,8 +52,13 @@ tests = testGroup "Solvers" []
 
 
 
-data KnownCell
-  = KnownCell { cell :: Cell ()
+data KnownCell a
+  = KnownCell { cell :: Cell a
               , known :: Bool
               }
   deriving (Eq, Show, Generic)
+
+
+knownLineToHints :: Vector n (KnownCell a) -> Hints n a
+knownLineToHints
+  = foldr _ _
