@@ -129,6 +129,7 @@ always realise this without an explicit demonstration.
 pattern (:^-) :: () => (n >= 1) => a -> Vector (n - 1) a -> Vector n a
 pattern x :^- xs = x :^ xs
 infixr 5 :^-
+{-# COMPLETE :^-, Nil #-}
 
 
 deriving instance Eq a => Eq (Vector n a)
