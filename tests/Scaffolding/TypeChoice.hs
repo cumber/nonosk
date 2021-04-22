@@ -6,8 +6,9 @@
            , MultiParamTypeClasses
            , ScopedTypeVariables
            , TypeApplications
-           , TypeFamilies
+           , TypeFamilyDependencies
            , TypeOperators
+           , UndecidableInstances
   #-}
 
 module Scaffolding.TypeChoice

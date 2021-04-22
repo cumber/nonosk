@@ -58,7 +58,9 @@ data KnownCell a
               }
   deriving (Eq, Show, Generic)
 
-
+{-
+TODO: finish this
 knownLineToHints :: Vector n (KnownCell a) -> Hints n a
 knownLineToHints
   = foldr _ _
+-}

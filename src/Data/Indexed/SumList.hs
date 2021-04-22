@@ -24,8 +24,6 @@ import Data.Constraint ( (:-) (Sub)
                        , Dict (Dict)
                        )
 
-import Data.Monoid ( (<>) )
-
 
 import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndexF (instAnyKnownIndexF)
                                      , ForAnyKnownIndex (instAnyKnownIndex)

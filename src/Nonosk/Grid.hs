@@ -27,7 +27,7 @@ import qualified Control.Lens as Lens
 
 import Control.Monad ( (<=<) )
 
-import Data.Semigroup ( Semigroup ((<>), stimes)
+import Data.Semigroup ( stimes
                       , stimesIdempotent
                       )
 

@@ -53,7 +53,7 @@ import Unsafe.Coerce ( unsafeCoerce )
 
 import Data.Indexed.ForAnyKnownIndex ( ForAnyKnownIndex (instAnyKnownIndex) )
 
-import Data.Indexed.Nat ( Nat, KnownNat
+import Data.Indexed.Nat ( KnownNat
                         , type (<=), type (>=)
                         , type (>)
                         , type (+), type (-)
@@ -69,7 +69,7 @@ index Index = index' @ n
 
 
 index' :: forall n. KnownNat n => Natural
-index' = fromIntegral $ natVal' (proxy# @ Nat @ n)
+index' = fromIntegral $ natVal' (proxy# @ n)
 
 indexOf :: KnownNat n => f n a -> Index n ()
 indexOf _ = Index

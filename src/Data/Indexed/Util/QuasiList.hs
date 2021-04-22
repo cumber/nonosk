@@ -17,8 +17,6 @@ module Data.Indexed.Util.QuasiList
   )
 where
 
-import Data.Semigroup ( (<>) )
-
 import Language.Haskell.Exts ( defaultParseMode
                              , parseExpWithMode
                              )

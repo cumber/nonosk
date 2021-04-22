@@ -34,11 +34,7 @@ import Data.Constraint ( (:-)
 
 import Data.Kind ( Type )
 
-import Data.Maybe ( fromMaybe )
-
 import Data.Proxy ( Proxy (Proxy) )
-
-import Data.Semigroup ( (<>) )
 
 import Data.Type.Equality ( (:~:) (Refl) )
 

@@ -14,8 +14,6 @@ import qualified Data.ByteString.Char8 as Char8
 
 import Data.Char ( isDigit )
 
-import Data.Semigroup ( (<>) )
-
 
 import Data.Indexed.Some ( Some2 )
 import Nonosk.Hints

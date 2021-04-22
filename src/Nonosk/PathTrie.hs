@@ -30,8 +30,6 @@ where
 
 import Control.Applicative ( Alternative ((<|>), empty ) )
 
-import Data.Semigroup ( (<>) )
-
 import Numeric.Natural ( Natural )
 
 
@@ -81,7 +79,7 @@ apFork :: forall n a b
 Fork fs `apFork` Fork xs
   = Fork $ do f :--> ft <- fs
               x :--> xt <- xs
-              pure $ f x :--> switchZero' @ n (Fork []) (ft <*> xt)
+              pure $ f x :--> (ft <*> xt)
 
 
 instance KnownNat n => Alternative (PathTrie n)

@@ -19,7 +19,7 @@ import Data.List.HT ( sliceVertical )
 import Data.Maybe ( fromMaybe )
 
 import Math.NumberTheory.ArithmeticFunctions ( divisorsSmall )
-import Math.NumberTheory.Powers.Squares ( integerSquareRoot )
+import Math.NumberTheory.Roots ( integerSquareRoot )
 
 import Numeric.Natural ( Natural )
 

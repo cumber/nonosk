@@ -1,8 +1,10 @@
-name: nonosk-lib
+cabal-version: 3.4
+
+name: nonosk
 version: 0.1.0.0
 -- synopsis:
 -- description:
-license: GPL-3
+license: GPL-3.0-or-later
 license-file: LICENSE
 author: Ben Mellor
 maintainer: ben@smokingkangaroo.com
@@ -10,7 +12,6 @@ maintainer: ben@smokingkangaroo.com
 category: Game
 build-type: Simple
 -- extra-source-files:
-cabal-version: >=1.10
 
 library
   exposed-modules: Nonosk.FileFormats
@@ -36,7 +37,7 @@ library
                  Data.Indexed.Util.QuasiList
                  Data.Indexed.Util.ShowsListLike
   -- other-extensions:
-  build-depends: base ==4.9.*
+  build-depends: base ^>= 4.14
                , bytestring
                , constraints
                , containers
@@ -69,11 +70,12 @@ test-suite tests
                  Test.Data.Indexed.Vector
                  Test.Nonosk.Solvers
   build-depends: base
-               , nonosk-lib
+               , nonosk
 
                , arithmoi
                , constraints
                , containers
+               , integer-roots
                , tasty
                , tasty-expected-failure
                , tasty-golden
@@ -98,7 +100,7 @@ executable solver
   default-language: Haskell2010
   build-depends: base
                , bytestring
-               , nonosk-lib
+               , nonosk
   ghc-options: -Wall
                -Wmissing-exported-signatures
                -Wno-unticked-promoted-constructors
